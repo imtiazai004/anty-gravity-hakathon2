@@ -128,7 +128,14 @@ export class SupplyChainAgent {
               await wait(600);
             } 
             else if (name === "rerouteShipment") {
-              toolResult = db.rerouteShipment(args.shipmentId, args.newDestination);
+              const destName = args.newDestination.replace("Port of ", "").trim();
+              const destGeo = await NewsScraper.scrapeLocation(destName);
+              toolResult = db.rerouteShipment(
+                args.shipmentId, 
+                args.newDestination, 
+                destGeo ? destGeo.lat : null, 
+                destGeo ? destGeo.lon : null
+              );
               trace.push({
                 id: `sc-trace-tool-${Date.now()}-3`,
                 timestamp: new Date().toISOString(),
@@ -257,7 +264,7 @@ export class SupplyChainAgent {
     // Step 5: Execution (Mutate DB)
     let executionResult;
     try {
-      executionResult = db.rerouteShipment("Shipment ID-8842", newDest);
+      executionResult = db.rerouteShipment("Shipment ID-8842", newDest, geoData ? geoData.lat : null, geoData ? geoData.lon : null);
     } catch (e) {
       executionResult = { message: `Shipment already rerouted to ${newDest}.` };
     }

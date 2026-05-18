@@ -2,9 +2,9 @@
 // Allows our agent to query databases and take state-mutating actions
 
 const DEFAULT_SHIPMENTS = [
-  { id: "Shipment ID-8842", cargo: "SKU-90210 (Electronics)", quantity: 500, destination: "Port of LA", status: "In Transit", eta: "May 19, 2026" },
-  { id: "Shipment ID-5421", cargo: "SKU-10440 (Automotive)", quantity: 1200, destination: "Port of LA", status: "In Transit", eta: "May 22, 2026" },
-  { id: "Shipment ID-9102", cargo: "SKU-77201 (Apparel)", quantity: 800, destination: "Port of Seattle", status: "In Transit", eta: "May 18, 2026" }
+  { id: "Shipment ID-8842", cargo: "SKU-90210 (Electronics)", quantity: 500, destination: "Port of LA", status: "In Transit", eta: "May 19, 2026", lat: 33.74, lon: -118.26 },
+  { id: "Shipment ID-5421", cargo: "SKU-10440 (Automotive)", quantity: 1200, destination: "Port of LA", status: "In Transit", eta: "May 22, 2026", lat: 33.74, lon: -118.26 },
+  { id: "Shipment ID-9102", cargo: "SKU-77201 (Apparel)", quantity: 800, destination: "Port of Seattle", status: "In Transit", eta: "May 18, 2026", lat: 47.60, lon: -122.33 }
 ];
 
 const DEFAULT_INVENTORY = [
@@ -46,7 +46,7 @@ export const db = {
     return inventory;
   },
 
-  rerouteShipment(shipmentId, newDestination) {
+  rerouteShipment(shipmentId, newDestination, lat, lon) {
     const shipment = shipments.find(s => s.id === shipmentId || s.id.includes(shipmentId));
     if (!shipment) {
       throw new Error(`Shipment with ID ${shipmentId} not found.`);
@@ -55,6 +55,24 @@ export const db = {
     shipment.destination = newDestination;
     shipment.status = "Rerouted";
     shipment.eta = "May 20, 2026 (Expedited)";
+    
+    if (lat && lon) {
+      shipment.lat = Number(lat);
+      shipment.lon = Number(lon);
+    } else {
+      // fallback coordinates for Seattle, Tokyo, London, LA
+      const lowerDest = newDestination.toLowerCase();
+      if (lowerDest.includes("seattle")) {
+        shipment.lat = 47.60;
+        shipment.lon = -122.33;
+      } else if (lowerDest.includes("tokyo")) {
+        shipment.lat = 35.67;
+        shipment.lon = 139.65;
+      } else if (lowerDest.includes("london")) {
+        shipment.lat = 51.50;
+        shipment.lon = -0.12;
+      }
+    }
 
     // Update SKU inventory safety status if it mitigates stockout
     if (shipment.cargo.includes("SKU-90210") && newDestination.toLowerCase().includes("seattle")) {

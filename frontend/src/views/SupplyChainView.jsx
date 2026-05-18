@@ -14,6 +14,158 @@ function HudRadar() {
   );
 }
 
+// Active Leaflet Map Component loaded dynamically
+function RealWorldMap({ shipments, isRerouted }) {
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+
+  // Dynamic injector for Leaflet assets (fully self-contained!)
+  useEffect(() => {
+    if (window.L) {
+      setLeafletLoaded(true);
+      return;
+    }
+
+    // Inject CSS
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    link.crossOrigin = '';
+    document.head.appendChild(link);
+
+    // Inject CSS Custom Tooltip Styling for our cyber theme
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .cyber-tooltip {
+        background: rgba(15, 23, 42, 0.85) !important;
+        border: 1px solid rgba(6, 182, 212, 0.3) !important;
+        color: #fff !important;
+        font-family: monospace !important;
+        font-size: 0.75rem !important;
+        padding: 2px 6px !important;
+        border-radius: 4px !important;
+        box-shadow: 0 0 8px rgba(6, 182, 212, 0.25) !important;
+        font-weight: bold !important;
+      }
+      .leaflet-container {
+        background: #0f172a !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Inject Script
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.crossOrigin = '';
+    script.onload = () => {
+      setLeafletLoaded(true);
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    if (!leafletLoaded || !window.L) return;
+
+    const mapElement = document.getElementById('leaflet-route-map');
+    if (!mapElement) return;
+
+    // Destroy existing instance to avoid duplicates
+    if (window.activeLeafletMap) {
+      window.activeLeafletMap.remove();
+      window.activeLeafletMap = null;
+    }
+
+    const map = window.L.map('leaflet-route-map', {
+      zoomControl: false,
+      attributionControl: false
+    }).setView([20.0, 0.0], 2);
+
+    window.activeLeafletMap = map;
+
+    // Premium glowing CartoDB Dark Matter tile layer
+    window.L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 18
+    }).addTo(map);
+
+    // Default origin port: Shanghai
+    const origin = [31.23, 121.47];
+    window.L.circleMarker(origin, {
+      radius: 6,
+      color: '#06b6d4',
+      fillColor: '#06b6d4',
+      fillOpacity: 0.9,
+      weight: 2
+    }).addTo(map).bindTooltip("Shanghai Port", { permanent: true, direction: 'top', className: 'cyber-tooltip' });
+
+    // Plot shipments from DB dynamically!
+    const activeRouteCoords = [origin];
+
+    shipments.forEach(s => {
+      // If the shipment has custom coordinates from geocoding, use them!
+      const lat = s.lat || (s.destination.includes("Seattle") ? 47.60 : 33.74);
+      const lon = s.lon || (s.destination.includes("Seattle") ? -122.33 : -118.26);
+      
+      const isTarget = s.id.includes("8842");
+      const markerColor = isTarget ? (isRerouted ? '#10b981' : '#ef4444') : '#eab308';
+      
+      window.L.circleMarker([lat, lon], {
+        radius: isTarget ? 8 : 6,
+        color: markerColor,
+        fillColor: markerColor,
+        fillOpacity: 0.85,
+        weight: isTarget ? 3 : 2
+      }).addTo(map).bindTooltip(`${s.id}: ${s.destination}`, { permanent: true, direction: 'top', className: 'cyber-tooltip' });
+
+      // Add target coordinates to drawing path
+      if (isTarget) {
+        activeRouteCoords.push([lat, lon]);
+      }
+    });
+
+    // Draw shipment trajectories
+    if (activeRouteCoords.length > 1) {
+      window.L.polyline(activeRouteCoords, {
+        color: isRerouted ? '#10b981' : '#ef4444',
+        weight: 3,
+        dashArray: '5, 8',
+        opacity: 0.85
+      }).addTo(map);
+
+      // Fit map bounds to show route perfectly
+      map.fitBounds(activeRouteCoords, { padding: [30, 30] });
+    }
+
+    return () => {
+      if (window.activeLeafletMap) {
+        window.activeLeafletMap.remove();
+        window.activeLeafletMap = null;
+      }
+    };
+  }, [leafletLoaded, shipments, isRerouted]);
+
+  if (!leafletLoaded) {
+    return (
+      <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', border: '1px dashed rgba(6, 182, 212, 0.2)' }}>
+        <span>Initializing Real World Spatial Mapping HUD...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      id="leaflet-route-map" 
+      style={{ 
+        height: '180px', 
+        borderRadius: '8px', 
+        border: `1px solid ${isRerouted ? '#10b981' : '#ef4444'}`,
+        boxShadow: `inset 0 0 15px ${isRerouted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
+        position: 'relative', 
+        overflow: 'hidden',
+        zIndex: 10
+      }}
+    ></div>
+  );
+}
+
 function SupplyChainView({ dbState, triggerRefresh }) {
   const [inputText, setInputText] = useState('Loading unstructured logistics alert...');
   const [traces, setTraces] = useState([]);
@@ -360,42 +512,8 @@ function SupplyChainView({ dbState, triggerRefresh }) {
           <HudRadar />
         </div>
         
-        {/* Dynamic Route Map with critical-glow pulse */}
-        <div 
-          className={!isRerouted ? 'critical-glow' : ''}
-          style={{
-            background: 'rgba(15, 23, 42, 0.4)',
-            borderRadius: '8px',
-            height: '180px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: `1px solid ${isRerouted ? '#10b981' : '#ef4444'}`,
-            boxShadow: `inset 0 0 15px ${isRerouted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'}`,
-            position: 'relative',
-            overflow: 'hidden',
-            transition: 'all 0.5s',
-            zIndex: 10
-          }}
-        >
-          <div style={{ position: 'absolute', inset: 0, opacity: 0.15, backgroundImage: 'radial-gradient(circle, #06b6d4 1px, transparent 1px)', backgroundSize: '15px 15px' }}></div>
-          
-          <div style={{ zIndex: 11, textAlign: 'center', padding: '1rem' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem', animation: 'float 3s ease-in-out infinite' }}>
-              {isRerouted ? '🚢 🟢 🚛' : '🚢 ⚠️ ❌'}
-            </div>
-            <div style={{ 
-              color: isRerouted ? '#10b981' : '#ef4444',
-              fontWeight: 'bold',
-              fontSize: '0.85rem',
-              letterSpacing: '1.5px',
-              textTransform: 'uppercase',
-              textShadow: isRerouted ? '0 0 8px rgba(16, 185, 129, 0.4)' : '0 0 8px rgba(239, 68, 68, 0.4)'
-            }}>
-              {mapStatusText}
-            </div>
-          </div>
-        </div>
+        {/* Dynamic Route Map using Leaflet */}
+        <RealWorldMap shipments={shipments} isRerouted={isRerouted} />
 
         {/* Live Shipments Grid */}
         <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', marginTop: '0.5rem', position: 'relative', zIndex: 10 }}>Active Cargo Trajectories</h3>
