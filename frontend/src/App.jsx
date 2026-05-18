@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import SupplyChainView from './views/SupplyChainView';
-import HealthcareView from './views/HealthcareView';
+import NewsView from './views/NewsView';
+import LogisticsView from './views/LogisticsView';
+import FinancialView from './views/FinancialView';
 import { API_URL } from './config';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('supply');
+  const [activeTab, setActiveTab] = useState('news');
   const [status, setStatus] = useState({ isLive: false, mode: 'Connecting...' });
   const [dbState, setDbState] = useState({ shipments: [], inventory: [], staffing: [], logs: [], finance: [], fuelSurchargeRate: 5, draftedNotification: "", shippingCostMultiplier: 1.0 });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -538,30 +539,41 @@ function App() {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           <button 
-            className={`tab-btn ${activeTab === 'supply' ? 'active' : ''}`}
-            onClick={() => setActiveTab('supply')}
+            className={`tab-btn ${activeTab === 'news' ? 'active' : ''}`}
+            onClick={() => setActiveTab('news')}
             style={{
-              borderColor: activeTab === 'supply' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)',
-              boxShadow: activeTab === 'supply' ? '0 0 15px rgba(6, 182, 212, 0.15)' : 'none',
-              color: activeTab === 'supply' ? 'var(--accent-cyan)' : 'var(--text-muted)'
+              borderColor: activeTab === 'news' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)',
+              boxShadow: activeTab === 'news' ? '0 0 15px rgba(6, 182, 212, 0.15)' : 'none',
+              color: activeTab === 'news' ? 'var(--accent-cyan)' : 'var(--text-muted)'
             }}
           >
-            Supply Chain Radar
+            📰 News Grounding
           </button>
           <button 
-            className={`tab-btn ${activeTab === 'healthcare' ? 'active' : ''}`}
-            onClick={() => setActiveTab('healthcare')}
+            className={`tab-btn ${activeTab === 'logistics' ? 'active' : ''}`}
+            onClick={() => setActiveTab('logistics')}
             style={{
-              borderColor: activeTab === 'healthcare' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)',
-              boxShadow: activeTab === 'healthcare' ? '0 0 15px rgba(6, 182, 212, 0.15)' : 'none',
-              color: activeTab === 'healthcare' ? 'var(--accent-cyan)' : 'var(--text-muted)'
+              borderColor: activeTab === 'logistics' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)',
+              boxShadow: activeTab === 'logistics' ? '0 0 15px rgba(6, 182, 212, 0.15)' : 'none',
+              color: activeTab === 'logistics' ? 'var(--accent-cyan)' : 'var(--text-muted)'
             }}
           >
-            Healthcare Telemetry
+            🚢 Logistics Radar
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === 'finance' ? 'active' : ''}`}
+            onClick={() => setActiveTab('finance')}
+            style={{
+              borderColor: activeTab === 'finance' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)',
+              boxShadow: activeTab === 'finance' ? '0 0 15px rgba(6, 182, 212, 0.15)' : 'none',
+              color: activeTab === 'finance' ? 'var(--accent-cyan)' : 'var(--text-muted)'
+            }}
+          >
+            💰 Financial Ledger
           </button>
         </motion.div>
       </header>
-
+ 
       <main style={{ position: 'relative' }}>
         <AnimatePresence mode="wait">
           <motion.div
@@ -571,10 +583,14 @@ function App() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
           >
-            {activeTab === 'supply' ? (
-              <SupplyChainView dbState={dbState} triggerRefresh={triggerRefresh} />
-            ) : (
-              <HealthcareView dbState={dbState} triggerRefresh={triggerRefresh} />
+            {activeTab === 'news' && (
+              <NewsView dbState={dbState} triggerRefresh={triggerRefresh} />
+            )}
+            {activeTab === 'logistics' && (
+              <LogisticsView dbState={dbState} />
+            )}
+            {activeTab === 'finance' && (
+              <FinancialView dbState={dbState} />
             )}
           </motion.div>
         </AnimatePresence>
