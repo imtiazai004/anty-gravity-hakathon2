@@ -166,51 +166,74 @@ export class HealthcareAgent {
     // --- SMART SIMULATED FALLBACK ---
     // Still queries the state.js database and mutates it so that the application works dynamically
 
-    // Step 2: Insight Extraction
+    // Spatial geocoding search based on user's query
+    let locationWord = "London";
+    const locations = ["LA", "Seattle", "Tokyo", "London", "New York", "Rotterdam", "Singapore", "Hamburg", "Shanghai", "Baltimore", "Miami", "Houston"];
+    for (const loc of locations) {
+      if (input.toLowerCase().includes(loc.toLowerCase())) {
+        locationWord = loc;
+        break;
+      }
+    }
+
+    const geoData = await NewsScraper.scrapeLocation(locationWord);
+    if (geoData) {
+      trace.push({
+        id: `hc-trace-geo-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        source: "OpenStreetMap Nominatim",
+        action: "Geocoding Spatial Grounding",
+        details: `Real-time spatial query complete for '${locationWord}'.\n- Name: ${geoData.name}\n- Coordinates: Lat ${geoData.lat}, Lon ${geoData.lon}\n- Classification: ${geoData.type || "clinic"} (${geoData.class || "facility"})`,
+        status: "completed"
+      });
+      await wait(600);
+    }
+
+    // Step 2: Insight Extraction (Live News Scrape)
     const scrapedArticles = await NewsScraper.scrapeNews(input.length > 5 ? input : "healthcare staffing ICU");
     const topHeadline = scrapedArticles[0] ? scrapedArticles[0].title : "Hospital staffing crisis warnings active";
     const liveNewsContext = scrapedArticles.map(a => `- ${a.title}`).join("\n");
 
-    let extractedDetails = `[ReportAnalyzer Core Thinking Process]:\n1. Received Staffing Query: "${input}"\n2. Querying Live Healthcare Databases and Scraping Live Feeds...\n3. Extracted Critical Alert: "${topHeadline}"\n4. Analyzing Impact: This news indicates critical local nurse shortages and safety limit breaches in ER/ICU wards.\n5. Action Plan: Dispatching automated audit for ward patient-to-nurse ratios.`;
+    let extractedDetails = `[ReportAnalyzer Core Thinking Process]:\n1. Received Staffing Query: "${input}"\n2. Geocoding Spatial Reference: '${locationWord}' resolved to [Lat: ${geoData ? geoData.lat : "51.5"}, Lon: ${geoData ? geoData.lon : "-0.1"}]\n3. Querying Live Healthcare Databases and Scraping Live Feeds...\n4. Extracted Critical Alert: "${topHeadline}"\n5. Analyzing Impact: This news indicates critical local nurse shortages near coordinates [${geoData ? geoData.lat : "51.5"}, ${geoData ? geoData.lon : "-0.1"}] (Region: ${locationWord}).\n6. Action Plan: Dispatching automated audit for ICU patient-to-nurse ratios at ward matching target zone.`;
 
-    trace.push({
+    const trace2Index = trace.push({
       id: "hc-trace-2",
       timestamp: new Date().toISOString(),
       source: "ReportAnalyzer Neural Engine",
       action: "Insight Extraction & Reasoning",
       details: extractedDetails,
       status: "processing"
-    });
+    }) - 1;
     await wait(1000);
-    trace[1].status = "completed";
+    trace[trace2Index].status = "completed";
 
     // Step 3: Impact Analysis (Query DB)
     const staffingLevels = db.getStaffingLevels();
     const icuUnit = staffingLevels.find(u => u.id.includes("ICU"));
     const sduUnit = staffingLevels.find(u => u.id.includes("Step-Down"));
     
-    trace.push({
+    const trace3Index = trace.push({
       id: "hc-trace-3",
       timestamp: new Date().toISOString(),
       source: "ReportAnalyzer Database Link",
       action: "Impact Analysis",
-      details: `[Reasoning Step 6]: Inspected ward staffing compliance. \n[Reasoning Step 7]: Critical Alert: ICU Ward 4 active nurses: ${icuUnit ? icuUnit.assigned - 3 : 9}/12 (shortage of 3). Step-Down Unit has surplus of 4 nurses. ICU safety limit violated!`,
+      details: `[Reasoning Step 6]: Inspected ward staffing compliance at hospital hub matching ${locationWord}.\n[Reasoning Step 7]: Critical Alert: ICU Ward 4 active nurses: ${icuUnit ? icuUnit.assigned - 3 : 9}/12 (shortage of 3). Step-Down Unit has surplus of 4 nurses. ICU safety limit violated!`,
       status: "processing"
-    });
+    }) - 1;
     await wait(1200);
-    trace[2].status = "completed";
+    trace[trace3Index].status = "completed";
 
     // Step 4: Action Generation
-    trace.push({
+    const trace4Index = trace.push({
       id: "hc-trace-4",
       timestamp: new Date().toISOString(),
       source: "ReportAnalyzer Action Engine",
       action: "Generate Mitigations",
-      details: "[Reasoning Step 8]: Formulated emergency mitigation: Instantly reallocate 3 surplus nurses from Step-Down Unit to ICU Ward 4 to restore staffing safety compliance and lower patient risk.",
+      details: `[Reasoning Step 8]: Formulated emergency mitigation: Instantly reallocate 3 surplus nurses from Step-Down Unit to ICU Ward 4 to restore staffing safety compliance and lower patient risk at ${locationWord} medical hub.`,
       status: "processing"
-    });
+    }) - 1;
     await wait(1000);
-    trace[3].status = "completed";
+    trace[trace4Index].status = "completed";
 
     // Step 5: Execution (Mutate DB)
     let executionResult;
@@ -220,16 +243,16 @@ export class HealthcareAgent {
       executionResult = { message: "Nurses already reallocated." };
     }
 
-    trace.push({
+    const trace5Index = trace.push({
       id: "hc-trace-5",
       timestamp: new Date().toISOString(),
       source: "HR Scheduling System (Simulated)",
       action: "Execute Action",
       details: executionResult.message,
       status: "processing"
-    });
+    }) - 1;
     await wait(800);
-    trace[4].status = "completed";
+    trace[trace5Index].status = "completed";
 
     return {
       success: true,

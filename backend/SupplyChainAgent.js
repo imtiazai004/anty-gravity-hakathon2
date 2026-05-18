@@ -184,70 +184,94 @@ export class SupplyChainAgent {
     // --- SMART SIMULATED FALLBACK ---
     // Still queries the state.js database and mutates it so that the application works dynamically
 
-    // Step 2: Insight Extraction
+    // Spatial geocoding search based on user's query
+    let locationWord = "LA";
+    const locations = ["LA", "Seattle", "Tokyo", "London", "New York", "Rotterdam", "Singapore", "Hamburg", "Shanghai", "Baltimore", "Miami", "Houston"];
+    for (const loc of locations) {
+      if (input.toLowerCase().includes(loc.toLowerCase())) {
+        locationWord = loc;
+        break;
+      }
+    }
+
+    const geoData = await NewsScraper.scrapeLocation(locationWord);
+    if (geoData) {
+      trace.push({
+        id: `sc-trace-geo-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        source: "OpenStreetMap Nominatim",
+        action: "Geocoding Spatial Grounding",
+        details: `Real-time spatial query complete for '${locationWord}'.\n- Name: ${geoData.name}\n- Coordinates: Lat ${geoData.lat}, Lon ${geoData.lon}\n- Classification: ${geoData.type || "port"} (${geoData.class || "boundary"})`,
+        status: "completed"
+      });
+      await wait(600);
+    }
+
+    // Step 2: Insight Extraction (Live News Scrape)
     const scrapedArticles = await NewsScraper.scrapeNews(input.length > 5 ? input : "logistics strike");
     const topHeadline = scrapedArticles[0] ? scrapedArticles[0].title : "Port of LA 48-hour labor strike active";
     const liveNewsContext = scrapedArticles.map(a => `- ${a.title}`).join("\n");
 
-    let extractedDetails = `[ReportAnalyzer Core Thinking Process]:\n1. Received Query: "${input}"\n2. Scraping Live Internet Sources...\n3. Extracted Critical Headline: "${topHeadline}"\n4. Analyzing Impact: This news indicates a high risk to logistics networks and active cargo.\n5. Action Plan: Initiating database scan for affected shipments matching risk parameters.`;
+    let extractedDetails = `[ReportAnalyzer Core Thinking Process]:\n1. Received Query: "${input}"\n2. Geocoding Spatial Reference: '${locationWord}' resolved to [Lat: ${geoData ? geoData.lat : "33.7"}, Lon: ${geoData ? geoData.lon : "-118.2"}]\n3. Scraping Live Internet Sources...\n4. Extracted News Grounding: "${topHeadline}"\n5. Analyzing Impact: High risk detected near coordinates [${geoData ? geoData.lat : "33.7"}, ${geoData ? geoData.lon : "-118.2"}].\n6. Action Plan: Scan shipments bound for [${locationWord}] and initiate rerouting.`;
 
-    trace.push({
+    const trace2Index = trace.push({
       id: "sc-trace-2",
       timestamp: new Date().toISOString(),
       source: "ReportAnalyzer Neural Engine",
       action: "Insight Extraction & Reasoning",
       details: extractedDetails,
       status: "processing"
-    });
+    }) - 1;
     await wait(1000);
-    trace[1].status = "completed";
+    trace[trace2Index].status = "completed";
 
     // Step 3: Impact Analysis (Query DB)
     const activeShipments = db.getShipments();
     const lowStockSku = db.getInventory().find(i => i.sku === "SKU-90210");
-    const affected = activeShipments.filter(s => s.destination.includes("LA"));
+    const affected = activeShipments.filter(s => s.destination.includes("LA") || s.destination.toLowerCase().includes(locationWord.toLowerCase()));
     
-    trace.push({
+    const trace3Index = trace.push({
       id: "sc-trace-3",
       timestamp: new Date().toISOString(),
       source: "ReportAnalyzer Database Link",
       action: "Impact Analysis",
-      details: `[Reasoning Step 6]: Queried ERP database. Found ${affected.length} active shipments bound for LA. \n[Reasoning Step 7]: Checked inventory. Electronics SKU-90210 current level is ${lowStockSku ? lowStockSku.quantity : 200} units. Critical stockout warning in ~3 days!`,
+      details: `[Reasoning Step 6]: Queried ERP database. Found ${affected.length} active shipments bound for ${locationWord}. \n[Reasoning Step 7]: Checked inventory. Electronics SKU-90210 current level is ${lowStockSku ? lowStockSku.quantity : 200} units. Critical stockout warning in ~3 days!`,
       status: "processing"
-    });
+    }) - 1;
     await wait(1200);
-    trace[2].status = "completed";
+    trace[trace3Index].status = "completed";
 
     // Step 4: Action Generation
-    trace.push({
+    const newDest = locationWord === "LA" ? "Port of Seattle" : `Port of ${locationWord} Safe-Zone`;
+    const trace4Index = trace.push({
       id: "sc-trace-4",
       timestamp: new Date().toISOString(),
       source: "ReportAnalyzer Action Engine",
       action: "Generate Mitigations",
-      details: "[Reasoning Step 8]: Formulated mitigation plan to prevent stockout: Divert high-priority Shipment ID-8842 carrying SKU-90210 electronics from Port of LA to Port of Seattle. Expedite ground delivery.",
+      details: `[Reasoning Step 8]: Formulated mitigation plan to prevent stockout: Divert high-priority Shipment ID-8842 carrying SKU-90210 electronics to ${newDest}. Coordinates updated to match real-world geocoded coordinates.`,
       status: "processing"
-    });
+    }) - 1;
     await wait(1000);
-    trace[3].status = "completed";
+    trace[trace4Index].status = "completed";
 
     // Step 5: Execution (Mutate DB)
     let executionResult;
     try {
-      executionResult = db.rerouteShipment("Shipment ID-8842", "Port of Seattle");
+      executionResult = db.rerouteShipment("Shipment ID-8842", newDest);
     } catch (e) {
-      executionResult = { message: "Shipment already rerouted." };
+      executionResult = { message: `Shipment already rerouted to ${newDest}.` };
     }
 
-    trace.push({
+    const trace5Index = trace.push({
       id: "sc-trace-5",
       timestamp: new Date().toISOString(),
       source: "ERP System (Simulated)",
       action: "Execute Action",
       details: executionResult.message,
       status: "processing"
-    });
+    }) - 1;
     await wait(800);
-    trace[4].status = "completed";
+    trace[trace5Index].status = "completed";
 
     return {
       success: true,

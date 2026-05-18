@@ -62,4 +62,36 @@ export class NewsScraper {
       ];
     }
   }
+
+  static async scrapeLocation(query) {
+    const encodedQuery = encodeURIComponent(query);
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodedQuery}&format=json&addressdetails=1&limit=1`;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'ReportAnalyzerAgenticDashboard/1.0 (imtiazai004@gmail.com)'
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch location data: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const place = data[0];
+        return {
+          name: place.display_name,
+          lat: place.lat,
+          lon: place.lon,
+          type: place.type,
+          class: place.class,
+          address: place.address
+        };
+      }
+      return null;
+    } catch (e) {
+      console.error(`Location geocoding failed for "${query}":`, e);
+      return null;
+    }
+  }
 }
