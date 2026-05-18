@@ -7,7 +7,7 @@ import { API_URL } from './config';
 function App() {
   const [activeTab, setActiveTab] = useState('supply');
   const [status, setStatus] = useState({ isLive: false, mode: 'Connecting...' });
-  const [dbState, setDbState] = useState({ shipments: [], inventory: [], staffing: [], logs: [] });
+  const [dbState, setDbState] = useState({ shipments: [], inventory: [], staffing: [], logs: [], finance: [], fuelSurchargeRate: 5, draftedNotification: "", shippingCostMultiplier: 1.0 });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   // Mobile Audio block override

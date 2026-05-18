@@ -521,6 +521,11 @@ function SupplyChainView({ dbState, triggerRefresh }) {
           {shipments.map((shipment) => {
             const isTarget = shipment.id.includes("ID-8842");
             const isReroutedDest = shipment.destination.includes("Seattle");
+            const surcharge = dbState?.fuelSurchargeRate || 5;
+            const multiplier = dbState?.shippingCostMultiplier || 1.0;
+            const baseFee = shipment.baseLogisticsFee || 15000;
+            const totalCost = Math.round(baseFee * multiplier * (1 + surcharge / 100));
+
             return (
               <div 
                 key={shipment.id} 
@@ -537,7 +542,7 @@ function SupplyChainView({ dbState, triggerRefresh }) {
               >
                 <div>
                   <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>{shipment.id} <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>({shipment.cargo})</span></div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Qty: {shipment.quantity} units</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Qty: {shipment.quantity} units | Base: ${baseFee.toLocaleString()}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ 
@@ -547,41 +552,85 @@ function SupplyChainView({ dbState, triggerRefresh }) {
                   }}>
                     📍 {shipment.destination}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>ETA: {shipment.eta}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#06b6d4', fontWeight: 'bold', textShadow: '0 0 6px rgba(6, 182, 212, 0.2)' }}>
+                    Total: ${totalCost.toLocaleString()}
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Live Warehouse Inventory counters */}
-        <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', marginTop: '0.5rem', position: 'relative', zIndex: 10 }}>Warehouse Resource Ratios</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem', position: 'relative', zIndex: 10 }}>
-          {inventory.map((item) => {
-            const isLow = item.status.includes("Low");
-            const maxCap = 2000;
-            const percent = Math.min((item.quantity / maxCap) * 100, 100);
-            return (
-              <div key={item.sku} style={{ background: 'rgba(15, 23, 42, 0.3)', padding: '0.75rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-                  <div style={{ fontWeight: '500' }}>📦 {item.name} <span style={{ color: 'var(--text-muted)' }}>({item.sku})</span></div>
-                  <div style={{ color: isLow ? '#ef4444' : '#10b981', fontWeight: '600' }}>
-                    {item.quantity} / {maxCap} units ({item.status})
-                  </div>
-                </div>
-                {/* Visual Progress Bar */}
-                <div style={{ background: 'rgba(255,255,255,0.05)', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ 
-                    width: `${percent}%`, 
-                    height: '100%', 
-                    background: isLow ? 'linear-gradient(90deg, #ef4444, #f59e0b)' : 'linear-gradient(90deg, #06b6d4, #10b981)',
-                    borderRadius: '4px',
-                    transition: 'width 0.5s'
-                  }}></div>
-                </div>
+        {/* Real-Time Transaction Surcharge Simulator */}
+        <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', marginTop: '0.5rem', position: 'relative', zIndex: 10 }}>
+          💰 Transaction Surcharge Checkout Simulator
+        </h3>
+        <div style={{ background: 'rgba(15, 23, 42, 0.3)', padding: '0.85rem', borderRadius: '6px', border: '1px solid rgba(6, 182, 212, 0.15)', position: 'relative', zIndex: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+            <div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Fuel Surcharge Rate:</span>
+              <div style={{ fontSize: '1.05rem', color: (dbState?.fuelSurchargeRate || 5) > 5 ? '#f59e0b' : '#10b981', fontWeight: 'bold' }}>
+                ⚡ {dbState?.fuelSurchargeRate || 5}%
               </div>
-            );
-          })}
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Cost Multiplier Index:</span>
+              <div style={{ fontSize: '1.05rem', color: (dbState?.shippingCostMultiplier || 1.0) > 1.0 ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
+                📈 x{dbState?.shippingCostMultiplier || 1.0}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.4rem', marginTop: '0.4rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+              <span>Base Delivery Fee:</span>
+              <span>$15,000</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+              <span>Inflation Index Adjustment:</span>
+              <span>+${Math.round(15000 * ((dbState?.shippingCostMultiplier || 1.0) - 1.0)).toLocaleString()}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+              <span>Fuel Surcharge Adjustment:</span>
+              <span>+${Math.round(15000 * (dbState?.shippingCostMultiplier || 1.0) * (((dbState?.fuelSurchargeRate || 5) - 5) / 100)).toLocaleString()}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-main)', borderTop: '1px dashed rgba(6, 182, 212, 0.3)', paddingTop: '0.4rem' }}>
+              <span>Simulated Checkout Total:</span>
+              <span style={{ color: '#06b6d4', textShadow: '0 0 8px rgba(6, 182, 212, 0.4)' }}>
+                ${Math.round(15000 * (dbState?.shippingCostMultiplier || 1.0) * (1 + (dbState?.fuelSurchargeRate || 5) / 100)).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Dynamic Client Dispatch Notification Warning */}
+        <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', marginTop: '0.5rem', position: 'relative', zIndex: 10 }}>
+          ✉️ Auto-Drafted Customer Notice Dispatch
+        </h3>
+        <div style={{ 
+          background: 'rgba(15, 23, 42, 0.5)', 
+          padding: '0.85rem', 
+          borderRadius: '6px', 
+          border: dbState?.draftedNotification ? '1px dashed rgba(245, 158, 11, 0.4)' : '1px solid rgba(255,255,255,0.05)',
+          position: 'relative', 
+          zIndex: 10,
+          maxHeight: '110px',
+          overflowY: 'auto'
+        }}>
+          {dbState?.draftedNotification ? (
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <span>⚠️ SYSTEM DISPATCH ALERT READY:</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-main)', fontFamily: 'monospace', whiteSpace: 'pre-wrap', lineHeight: '1.3' }}>
+                {dbState.draftedNotification}
+              </p>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic', padding: '1rem' }}>
+              Standing by. No real-time pricing alerts or energy surges detected yet.
+            </div>
+          )}
         </div>
       </div>
     </div>

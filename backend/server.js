@@ -29,7 +29,11 @@ app.get('/api/state', (req, res) => {
     shipments: db.getShipments(),
     inventory: db.getInventory(),
     staffing: db.getStaffingLevels(),
-    logs: db.getLogs()
+    logs: db.getLogs(),
+    finance: db.getFinanceData(),
+    fuelSurchargeRate: db.getFuelSurchargeRate(),
+    draftedNotification: db.getDraftedNotification(),
+    shippingCostMultiplier: db.getShippingCostMultiplier()
   });
 });
 

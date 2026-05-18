@@ -2,9 +2,9 @@
 // Allows our agent to query databases and take state-mutating actions
 
 const DEFAULT_SHIPMENTS = [
-  { id: "Shipment ID-8842", cargo: "SKU-90210 (Electronics)", quantity: 500, destination: "Port of LA", status: "In Transit", eta: "May 19, 2026", lat: 33.74, lon: -118.26 },
-  { id: "Shipment ID-5421", cargo: "SKU-10440 (Automotive)", quantity: 1200, destination: "Port of LA", status: "In Transit", eta: "May 22, 2026", lat: 33.74, lon: -118.26 },
-  { id: "Shipment ID-9102", cargo: "SKU-77201 (Apparel)", quantity: 800, destination: "Port of Seattle", status: "In Transit", eta: "May 18, 2026", lat: 47.60, lon: -122.33 }
+  { id: "Shipment ID-8842", cargo: "SKU-90210 (Electronics)", quantity: 500, destination: "Port of LA", status: "In Transit", eta: "May 19, 2026", lat: 33.74, lon: -118.26, baseLogisticsFee: 15000 },
+  { id: "Shipment ID-5421", cargo: "SKU-10440 (Automotive)", quantity: 1200, destination: "Port of LA", status: "In Transit", eta: "May 22, 2026", lat: 33.74, lon: -118.26, baseLogisticsFee: 28000 },
+  { id: "Shipment ID-9102", cargo: "SKU-77201 (Apparel)", quantity: 800, destination: "Port of Seattle", status: "In Transit", eta: "May 18, 2026", lat: 47.60, lon: -122.33, baseLogisticsFee: 18000 }
 ];
 
 const DEFAULT_INVENTORY = [
@@ -23,8 +23,8 @@ let inventory = JSON.parse(JSON.stringify(DEFAULT_INVENTORY));
 let staffing = JSON.parse(JSON.stringify(DEFAULT_STAFFING));
 
 const DEFAULT_FINANCE = [
-  { asset: "Tech Stocks Index", value: 450.2, status: "Volatile", trend: "Down" },
-  { asset: "Global Logistics ETF", value: 120.5, status: "Stable", trend: "Up" }
+  { asset: "Global Logistics Index", value: 120.5, status: "Stable", trend: "Up" },
+  { asset: "Crude Oil Brent Index", value: 78.4, status: "Normal", trend: "Stable" }
 ];
 
 const DEFAULT_CITY = [
@@ -36,7 +36,44 @@ let finance = JSON.parse(JSON.stringify(DEFAULT_FINANCE));
 let city = JSON.parse(JSON.stringify(DEFAULT_CITY));
 let logs = [];
 
+// New live state fields for the Tri-Domain Pipeline
+let fuelSurchargeRate = 5; // standard surcharge percentage
+let draftedNotification = ""; // agent-drafted customer notice email
+let shippingCostMultiplier = 1.0; // cargo inflation multiplier based on congestion/demand
+
 export const db = {
+  getFuelSurchargeRate() {
+    return fuelSurchargeRate;
+  },
+
+  getDraftedNotification() {
+    return draftedNotification;
+  },
+
+  getShippingCostMultiplier() {
+    return shippingCostMultiplier;
+  },
+
+  updateFinancialPricing(newSurcharge, newMultiplier, oilPriceTrend, emailNotice) {
+    if (newSurcharge !== undefined) fuelSurchargeRate = Number(newSurcharge);
+    if (newMultiplier !== undefined) shippingCostMultiplier = Number(newMultiplier);
+    
+    // Update Crude Oil trend in finance database
+    const oilAsset = finance.find(f => f.asset.includes("Crude Oil"));
+    if (oilAsset) {
+      oilAsset.value = oilPriceTrend === "Spike" ? 98.6 : 78.4;
+      oilAsset.status = oilPriceTrend === "Spike" ? "Volatile Surge" : "Normal";
+      oilAsset.trend = oilPriceTrend === "Spike" ? "Up" : "Stable";
+    }
+
+    if (emailNotice) {
+      draftedNotification = emailNotice;
+    }
+
+    const logEntry = `[Finance Engine] Pricing rates recalculated: Fuel Surcharge Index updated to ${fuelSurchargeRate}%, cargo multiplier: x${shippingCostMultiplier}. Global ledger updated.`;
+    logs.push(logEntry);
+    return { success: true, message: logEntry };
+  },
   // Supply Chain Database
   getShipments() {
     return shipments;
@@ -162,6 +199,9 @@ export const db = {
     staffing = JSON.parse(JSON.stringify(DEFAULT_STAFFING));
     finance = JSON.parse(JSON.stringify(DEFAULT_FINANCE));
     city = JSON.parse(JSON.stringify(DEFAULT_CITY));
+    fuelSurchargeRate = 5;
+    draftedNotification = "";
+    shippingCostMultiplier = 1.0;
     logs = [];
     return { success: true, message: "Simulation database reset successfully." };
   }
