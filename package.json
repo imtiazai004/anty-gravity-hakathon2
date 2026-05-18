@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "description": "Monorepo for Report Analyzer AI Command Center",
   "scripts": {
-    "install:backend": "cd backend && npm install",
-    "install:frontend": "cd frontend && npm install",
-    "build:frontend": "cd frontend && npm run build",
-    "build": "npm run install:backend && npm run install:frontend && npm run build:frontend",
+    "build": "cd frontend && npm install && npm run build",
     "start": "cd backend && npm start"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "pdf-parse": "^2.4.5"
   }
 }
