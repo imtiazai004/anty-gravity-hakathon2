@@ -94,4 +94,61 @@ export class NewsScraper {
       return null;
     }
   }
+
+  static async scrapeArticleContent(articleUrl) {
+    try {
+      const response = await fetch(articleUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch article: ${response.status}`);
+      }
+      const html = await response.text();
+
+      // Extract text from <p> paragraphs
+      const paragraphs = [];
+      const pRegex = /<p>([\s\S]*?)<\/p>/gi;
+      let match;
+      while ((match = pRegex.exec(html)) !== null && paragraphs.length < 15) {
+        let pText = match[1]
+          .replace(/<[^>]*>/g, '') // Strip inner HTML tags (e.g. <a>, <strong>)
+          .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+          .trim();
+        
+        // Decode common HTML entities
+        pText = pText
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'")
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>');
+          
+        if (pText.length > 25) {
+          paragraphs.push(pText);
+        }
+      }
+
+      if (paragraphs.length === 0) {
+        // Fallback: Strip all tags from body
+        const bodyMatch = html.match(/<body[\s\S]*?>([\s\S]*?)<\/body>/i);
+        if (bodyMatch) {
+          const bodyText = bodyMatch[1]
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]*>/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          return bodyText.substring(0, 1000);
+        }
+        return "No clear article body found.";
+      }
+
+      return paragraphs.join("\n\n").substring(0, 1500);
+    } catch (error) {
+      console.error(`Article scraper failed for URL "${articleUrl}":`, error);
+      return `Failed to scrape article content directly. URL: ${articleUrl}`;
+    }
+  }
 }

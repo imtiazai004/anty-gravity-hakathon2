@@ -26,6 +26,7 @@ function App() {
   const [isConsoleExpanded, setIsConsoleExpanded] = useState(true);
   // useRef to avoid stale closure inside recognition.onend
   const listeningRef = useRef(false);
+  const hasGreetedRef = useRef(false);
 
   // Programmatic HTML5 Web Audio Synth SFX
   const playReportAnalyzerSound = (type) => {
@@ -181,6 +182,9 @@ function App() {
 
   // --- ALWAYS-ON SPEECH LISTENER LOOP INTEGRATION ---
   const toggleAlwaysListening = async () => {
+    // Automatically slide the console expanded to show transcript logs
+    setIsConsoleExpanded(true);
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setMicError('unsupported');
@@ -192,6 +196,7 @@ function App() {
       // Turn off
       listeningRef.current = false;
       setIsAlwaysListening(false);
+      hasGreetedRef.current = false;
       if (window.wakeRecognitionInstance) {
         window.wakeRecognitionInstance.onend = null;
         try { window.wakeRecognitionInstance.stop(); } catch(e) {}
@@ -214,7 +219,7 @@ function App() {
     // Turn on
     playReportAnalyzerSound('start');
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous = false; // Set to false to capture final complete sentences on pause!
     recognition.interimResults = false;
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 1;
@@ -223,14 +228,19 @@ function App() {
       listeningRef.current = true;
       setIsAlwaysListening(true);
       setMicError(null);
-      setReportAnalyzerConsoleLogs(prev => ["System: 🎙️ Wake Word 'Report Analyzer' listener ACTIVE. Standing by, Sir.", ...prev.slice(0, 5)]);
-      speakText("Report Analyzer core initialized, Sir. I am online and listening for your commands.");
+      
+      // ONLY log the standing by message and greet on the absolute FIRST launch, NOT during background loop restarts!
+      if (!hasGreetedRef.current) {
+        hasGreetedRef.current = true;
+        setReportAnalyzerConsoleLogs(prev => ["System: 🎙️ Wake Word 'Report Analyzer' listener ACTIVE. Standing by, Sir.", ...prev.slice(0, 5)]);
+        speakText("Report Analyzer core initialized, Sir. I am online and listening for your commands.");
+      }
     };
 
     recognition.onresult = async (event) => {
-      const lastIndex = event.results.length - 1;
-      const transcript = event.results[lastIndex][0].transcript.trim();
-      console.log("ReportAnalyzer continuous input:", transcript);
+      // With continuous = false, the full captured sentence is in results[0][0]
+      const transcript = event.results[0][0].transcript.trim();
+      console.log("ReportAnalyzer captured input:", transcript);
 
       const lowerTranscript = transcript.toLowerCase();
       
@@ -265,13 +275,12 @@ function App() {
         setMicError('denied');
         setReportAnalyzerConsoleLogs(prev => ["System: ❌ Mic blocked! In Chrome: address bar 🔒 → Site Settings → Microphone → Allow → Refresh page.", ...prev.slice(0, 5)]);
       } else if (e.error === 'network') {
-        // network errors are non-fatal, loop will auto-restart
         console.warn('Speech network error, will retry...');
       }
     };
 
-    // Fixed: use listeningRef (not stale state) to control loop persistence
     recognition.onend = () => {
+      // Loop persistence
       if (listeningRef.current) {
         try {
           window.wakeRecognitionInstance.start();
@@ -401,11 +410,35 @@ function App() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               style={{ border: `1px solid ${isAlwaysListening ? 'rgba(16, 185, 129, 0.3)' : 'rgba(6, 182, 212, 0.3)'}` }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.25rem' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: micError === 'denied' ? '#ef4444' : isAlwaysListening ? '#10b981' : 'var(--accent-cyan)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.25rem', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: micError === 'denied' ? '#ef4444' : isAlwaysListening ? '#10b981' : 'var(--accent-cyan)' }}>
                   {micError === 'denied' ? '🚫 MIC BLOCKED' : micError === 'unsupported' ? '⚠️ NOT SUPPORTED' : isAlwaysListening ? '🎙️ LISTENING ("Report Analyzer")' : '🎤 MIC STANDBY'}
                 </span>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Console Log</span>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsConsoleExpanded(false);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'rgba(255,255,255,0.4)',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    padding: '0 6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s',
+                    fontWeight: 'bold',
+                    borderRadius: '4px'
+                  }}
+                  title="Minimize Logs Console"
+                  onMouseEnter={(e) => { e.target.style.color = '#ef4444'; e.target.style.background = 'rgba(255,0,0,0.1)'; }}
+                  onMouseLeave={(e) => { e.target.style.color = 'rgba(255,255,255,0.4)'; e.target.style.background = 'none'; }}
+                >
+                  ✕
+                </button>
               </div>
               <div className="trace-log-list" style={{ maxHeight: '180px', overflowY: 'auto' }}>
                 {reportAnalyzerConsoleLogs.map((log, idx) => {
@@ -428,11 +461,44 @@ function App() {
             </motion.div>
           )}
 
+          {/* Collapsed Logs Tab Trigger */}
+          {!isConsoleExpanded && (
+            <div 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsConsoleExpanded(true);
+              }}
+              style={{
+                position: 'absolute',
+                top: '-32px',
+                right: '4px',
+                background: 'rgba(15, 23, 42, 0.9)',
+                border: '1px solid rgba(6, 182, 212, 0.3)',
+                borderRadius: '12px',
+                padding: '3px 10px',
+                fontSize: '0.65rem',
+                color: 'var(--accent-cyan)',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(8px)',
+                transition: 'all 0.2s',
+                letterSpacing: '0.5px'
+              }}
+              title="Expand Console Logs"
+              onMouseEnter={(e) => { e.target.style.borderColor = 'var(--accent-cyan-glow)'; e.target.style.boxShadow = '0 0 10px var(--accent-cyan)'; }}
+              onMouseLeave={(e) => { e.target.style.borderColor = 'rgba(6, 182, 212, 0.3)'; e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)'; }}
+            >
+              💬 LOGS
+            </div>
+          )}
+
           {/* Tony Stark glowing concentric Arc Reactor Core with Microphone */}
           <div 
             onClick={toggleAlwaysListening}
             className={`arc-reactor-core ${isAlwaysListening ? 'arc-reactor-listening' : ''} ${isReportAnalyzerSpeaking ? 'arc-reactor-active' : ''}`}
             title="Toggle Always-On ReportAnalyzer voice command mode"
+            style={{ position: 'relative' }}
           >
             <div className="arc-reactor-ring"></div>
             <div className="arc-reactor-triangles"></div>

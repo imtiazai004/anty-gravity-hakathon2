@@ -83,6 +83,24 @@ app.post('/api/reportAnalyzer/chat', async (req, res) => {
     return res.status(400).json({ error: 'Prompt is required' });
   }
 
+  const urlRegex = /(https?:\/\/[^\s]+)/gi;
+  const urlMatch = prompt.match(urlRegex);
+  let finalPrompt = prompt;
+  let scraped = false;
+
+  if (urlMatch && urlMatch.length > 0) {
+    const url = urlMatch[0];
+    try {
+      const scrapedText = await NewsScraper.scrapeArticleContent(url);
+      if (scrapedText && !scrapedText.startsWith("Failed")) {
+        finalPrompt = `The user has sent a link to analyze: ${url}.\nScraped content from link:\n${scrapedText}\n\nUser request: ${prompt}`;
+        scraped = true;
+      }
+    } catch (err) {
+      console.error("Failed to scrape article in chat:", err);
+    }
+  }
+
   const isLive = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE';
 
   if (isLive) {
@@ -90,9 +108,9 @@ app.post('/api/reportAnalyzer/chat', async (req, res) => {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
         model: "gemini-flash-latest",
-        systemInstruction: "You are ReportAnalyzer, the loyal and sophisticated cybernetic AI assistant from Iron Man. You address the user as 'Sir'. You speak in a highly polite, helpful, and professional British tone, interleaved with technical and cybernetic intelligence jargon. If the user asks you to analyze news, present a high-tech briefing of recent events with supply-chain or healthcare themes. Keep your responses concise (2-4 sentences max) so they are easy to speak out loud via SpeechSynthesis."
+        systemInstruction: "You are ReportAnalyzer, the loyal and sophisticated cybernetic AI assistant from Iron Man. You address the user as 'Sir'. You speak in a highly polite, helpful, and professional British tone, interleaved with technical and cybernetic intelligence jargon. If the user asks you to analyze news or a link, present a high-tech briefing of the scraped article text. Keep your responses concise (2-4 sentences max) so they are easy to speak out loud via SpeechSynthesis."
       });
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent(finalPrompt);
       const responseText = result.response.text();
       return res.json({ reply: responseText });
     } catch (e) {
@@ -104,7 +122,9 @@ app.post('/api/reportAnalyzer/chat', async (req, res) => {
   const query = prompt.toLowerCase();
   let reply = "I am standing by, Sir. Ratios and supply chain logistics channels are executing under normal parameters.";
 
-  if (query.includes("news") || query.includes("google") || query.includes("today")) {
+  if (scraped) {
+    reply = `I have successfully retrieved and analyzed the article contents from the link, Sir. Telemetry indicates critical operations alerts matching supply chain indices. Corrective rerouting or medical staffing reallocations are executing immediately, Sir.`;
+  } else if (query.includes("news") || query.includes("google") || query.includes("today")) {
     reply = "I have scanned global logistics and healthcare feeds across Google registries, Sir. Inbound container shipments at the Port of LA are facing acute gridlocks due to sudden union strike actions, and ICU safety ratios are flagged under high alerts. Rerouting protocols are standing by for your authorization.";
   } else if (query.includes("how are you") || query.includes("status")) {
     reply = "Indeed, Sir. My core processors are performing under optimal thermal limits. All mainframe diagnostics checks are green. Shall I execute a full system operational sweep?";
