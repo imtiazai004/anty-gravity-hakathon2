@@ -12,8 +12,8 @@ function App() {
   const [dbState, setDbState] = useState({ shipments: [], inventory: [], staffing: [], logs: [], finance: [], fuelSurchargeRate: 5, draftedNotification: "", shippingCostMultiplier: 1.0 });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
-  // Mobile Audio block override
-  const [isAudioInitialized, setIsAudioInitialized] = useState(false);
+  // Mobile Audio block override (Defaulted to true for direct instant startup!)
+  const [isAudioInitialized, setIsAudioInitialized] = useState(true);
 
   // --- ALWAYS-ON CONVERSATIONAL REPORT_ANALYZER AI CORE STATE ---
   const [isAlwaysListening, setIsAlwaysListening] = useState(false);
@@ -21,12 +21,24 @@ function App() {
   const [isReportAnalyzerThinking, setIsReportAnalyzerThinking] = useState(false);
   const [isReportAnalyzerSpeaking, setIsReportAnalyzerSpeaking] = useState(false);
   const [reportAnalyzerConsoleLogs, setReportAnalyzerConsoleLogs] = useState([
-    "System: Standing by. Tap Mic to authorize hands-free vocals."
+    "System: Standing by. Hands-free active listening loop initialized."
   ]);
   const [isConsoleExpanded, setIsConsoleExpanded] = useState(true);
+
+  // Voice Persona Protocol
+  const [voicePersona, setVoicePersona] = useState('male'); // 'male' (Jarvis) | 'female' (Friday)
+
   // useRef to avoid stale closure inside recognition.onend
   const listeningRef = useRef(false);
   const hasGreetedRef = useRef(false);
+
+  const getWakeWordGreeting = () => {
+    if (voicePersona === 'male') {
+      return "Yes, I am here to help. Haan ji, main kya madad kar sakta hoon?";
+    } else {
+      return "Yes, I am here to help. Haan ji, main kya madad kar sakti hoon?";
+    }
+  };
 
   // Programmatic HTML5 Web Audio Synth SFX
   const playReportAnalyzerSound = (type) => {
@@ -116,15 +128,35 @@ function App() {
     const u = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
     
-    const britishVoice = voices.find(v => 
-      (v.lang.startsWith('en-GB') || v.name.includes('UK') || v.name.includes('British') || v.name.includes('Hazel') || v.name.includes('Great Britain'))
-    ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+    let selectedVoice = null;
     
-    if (britishVoice) {
-      u.voice = britishVoice;
+    if (voicePersona === 'male') {
+      // Find a masculine/deep voice
+      selectedVoice = voices.find(v => 
+        v.name.toLowerCase().includes('male') || 
+        v.name.toLowerCase().includes('david') || 
+        v.name.toLowerCase().includes('george') || 
+        v.name.toLowerCase().includes('microsoft david') ||
+        v.name.toLowerCase().includes('google uk english male')
+      ) || voices.find(v => v.lang.startsWith('en-GB')) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+      u.pitch = 0.88; // Deep resonant masculine tone
+      u.rate = 0.91;
+    } else {
+      // Find a feminine/higher voice (Hazel, Friday)
+      selectedVoice = voices.find(v => 
+        v.name.toLowerCase().includes('female') || 
+        v.name.toLowerCase().includes('zira') || 
+        v.name.toLowerCase().includes('hazel') || 
+        v.name.toLowerCase().includes('susan') || 
+        v.name.toLowerCase().includes('google uk english female')
+      ) || voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+      u.pitch = 1.15; // Bright energetic Friday tone
+      u.rate = 0.95;
     }
-    u.rate = 0.93;
-    u.pitch = 1.05;
+
+    if (selectedVoice) {
+      u.voice = selectedVoice;
+    }
 
     u.onstart = () => setIsReportAnalyzerSpeaking(true);
     u.onend = () => {
@@ -146,8 +178,14 @@ function App() {
         setStatus({ isLive: false, mode: 'Offline' });
       });
 
+    // Automatically trigger hands-free speech loop on startup!
+    const autoTimer = setTimeout(() => {
+      toggleAlwaysListening();
+    }, 1000); // 1.0s buffer to ensure browser audio contexts and voices are fully ready
+
     // Clean up persistent listening on unmount
     return () => {
+      clearTimeout(autoTimer);
       if (window.wakeRecognitionInstance) {
         window.wakeRecognitionInstance.onend = null;
         window.wakeRecognitionInstance.stop();
@@ -232,8 +270,9 @@ function App() {
       // ONLY log the standing by message and greet on the absolute FIRST launch, NOT during background loop restarts!
       if (!hasGreetedRef.current) {
         hasGreetedRef.current = true;
-        setReportAnalyzerConsoleLogs(prev => ["System: 🎙️ Wake Word 'Report Analyzer' listener ACTIVE. Standing by, Sir.", ...prev.slice(0, 5)]);
-        speakText("Report Analyzer core initialized, Sir. I am online and listening for your commands.");
+        const initialText = voicePersona === 'male' ? "JARVIS voice protocol initialized, Sir. I am online and listening for your commands." : "FRIDAY voice protocol initialized, Ma'am. I am online and listening for your commands.";
+        setReportAnalyzerConsoleLogs(prev => [`System: 🎙️ ${voicePersona === 'male' ? 'JARVIS' : 'FRIDAY'} active. Standing by...`, ...prev.slice(0, 5)]);
+        speakText(initialText);
       }
     };
 
@@ -261,8 +300,9 @@ function App() {
         if (command.length > 2) {
           processReportAnalyzerCommand(command);
         } else {
-          speakText("Indeed, Sir. I am active. What are your parameters?");
-          setReportAnalyzerConsoleLogs(prev => ["ReportAnalyzer: Indeed, Sir. What are your parameters?", ...prev.slice(0, 5)]);
+          const greetingText = getWakeWordGreeting();
+          speakText(greetingText);
+          setReportAnalyzerConsoleLogs(prev => [`ReportAnalyzer: "${greetingText}"`, ...prev.slice(0, 5)]);
         }
       }
     };
@@ -297,7 +337,8 @@ function App() {
   // Automated Agent Action Dispatcher & Speech Core
   const processReportAnalyzerCommand = async (command) => {
     setIsReportAnalyzerThinking(true);
-    setReportAnalyzerConsoleLogs(prev => [`Sir: "${command}"`, ...prev.slice(0, 5)]);
+    const pronoun = voicePersona === 'male' ? 'Sir' : "Ma'am";
+    setReportAnalyzerConsoleLogs(prev => [`${voicePersona === 'male' ? 'Sir' : 'Ma\'am'}: "${command}"`, ...prev.slice(0, 5)]);
 
     try {
       // 1. Get conversational reply from backend
@@ -308,19 +349,19 @@ function App() {
       });
       const chatData = await chatRes.json();
       
-      // 2. Speak ReportAnalyzer's human response
+      // 2. Speak ReportAnalyzer's initial quick response
       speakText(chatData.reply);
       setReportAnalyzerConsoleLogs(prev => [`ReportAnalyzer: "${chatData.reply}"`, ...prev.slice(0, 5)]);
 
       // 3. Detect operational keywords to auto-orchestrate actual simulated agents!
       const lowerCmd = command.toLowerCase();
       
-      if (lowerCmd.includes("news") || lowerCmd.includes("google") || lowerCmd.includes("supply") || lowerCmd.includes("shipment") || lowerCmd.includes("strike") || lowerCmd.includes("la")) {
+      if (lowerCmd.includes("news") || lowerCmd.includes("google") || lowerCmd.includes("supply") || lowerCmd.includes("shipment") || lowerCmd.includes("strike") || lowerCmd.includes("la") || lowerCmd.includes("route") || lowerCmd.includes("port")) {
         // Redirect tab visual view
         setActiveTab('supply');
         
         setTimeout(async () => {
-          speakText("Diverting Shipment ID-8842 carrying high-priority cargo from strike port LA to Seattle, Sir. STAND BY.");
+          speakText(`Initiating logistics mitigation protocols, ${pronoun}. Executing container rerouting schedules. STAND BY.`);
           try {
             await fetch(API_URL + '/api/scenarios/supplyChain/run', {
               method: 'POST',
@@ -330,17 +371,21 @@ function App() {
             // Update database states in UI
             triggerRefresh();
             playReportAnalyzerSound('success');
-            speakText("State mitigation complete, Sir. Cargo schedules secured at Port of Seattle.");
+            
+            // Rich Audio Briefing explaining what is done and next steps!
+            const supplyBriefing = `Status briefing, ${pronoun}. A labor union strike was reported at the Port of Los Angeles, exposing our high-priority cargo Shipment ID-8842 to severe gridlocks. To mitigate stockout risks for SKU-90210, I have successfully diverted the shipment to the Port of Seattle. Standard delivery ledgers have been adjusted with an updated 18 percent fuel surcharge. Moving forward, ${pronoun}, I recommend auditing inland truck dispatch schedules in Seattle to expedite final warehouse delivery. Standing by.`;
+            speakText(supplyBriefing);
+            setReportAnalyzerConsoleLogs(prev => [`System: ${supplyBriefing}`, ...prev.slice(0, 5)]);
           } catch (e) {
             console.error(e);
           }
-        }, 5000);
+        }, 3000);
       } 
-      else if (lowerCmd.includes("nurse") || lowerCmd.includes("hospital") || lowerCmd.includes("healthcare") || lowerCmd.includes("staff") || lowerCmd.includes("icu")) {
+      else if (lowerCmd.includes("nurse") || lowerCmd.includes("hospital") || lowerCmd.includes("healthcare") || lowerCmd.includes("staff") || lowerCmd.includes("icu") || lowerCmd.includes("shortage")) {
         setActiveTab('healthcare');
         
         setTimeout(async () => {
-          speakText("Reallocating reserve Step-Down nursing resources to balance ICU compliance limits, Sir. STAND BY.");
+          speakText(`Initiating healthcare safety protocols, ${pronoun}. Conducting medical staffing audit. STAND BY.`);
           try {
             await fetch(API_URL + '/api/scenarios/healthcare/run', {
               method: 'POST',
@@ -350,11 +395,15 @@ function App() {
             // Update database states in UI
             triggerRefresh();
             playReportAnalyzerSound('success');
-            speakText("Clinic audit complete, Sir. ICU ratios fully restored to stable safety thresholds.");
+            
+            // Rich Audio Briefing explaining what is done and next steps!
+            const healthBriefing = `Status briefing, ${pronoun}. Severe nursing staff deficits were flagged at the General Hospital ICU, causing safe patient safety ratios to exceed standard regulatory limits. To secure patient safety, I have reallocated nurse resources from Step-Down Units directly to the ICU, restoring the safety index to stable levels. Moving forward, ${pronoun}, we must initiate priority agency nurse hiring campaigns to offset the high ICU census over the next seventy-two hours. Standing by.`;
+            speakText(healthBriefing);
+            setReportAnalyzerConsoleLogs(prev => [`System: ${healthBriefing}`, ...prev.slice(0, 5)]);
           } catch (e) {
             console.error(e);
           }
-        }, 5000);
+        }, 3000);
       }
       else if (lowerCmd.includes("reset") || lowerCmd.includes("clear") || lowerCmd.includes("database")) {
         handleReset();
@@ -363,7 +412,7 @@ function App() {
     } catch (err) {
       console.error(err);
       playReportAnalyzerSound('error');
-      speakText("Apologies, Sir. A communication delay occurred on the neural mainframe.");
+      speakText(`Apologies, ${pronoun}. A communication delay occurred on the neural mainframe.`);
     } finally {
       setIsReportAnalyzerThinking(false);
     }
@@ -553,6 +602,72 @@ function App() {
               display: 'inline-block'
             }}></span>
             {status.mode}
+          </div>
+
+          {/* Holographic AI Persona Voice Protocol Selectors */}
+          <div style={{
+            display: 'flex',
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid rgba(6, 182, 212, 0.25)',
+            borderRadius: '20px',
+            padding: '2px',
+            height: '34px',
+            alignItems: 'center',
+            gap: '2px',
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)'
+          }}>
+            <button
+              onClick={() => {
+                setVoicePersona('male');
+                playReportAnalyzerSound('start');
+                speakText("JARVIS male protocol active, Sir.");
+                setReportAnalyzerConsoleLogs(prev => ["System: Voice Persona JARVIS (Male) active.", ...prev.slice(0, 5)]);
+              }}
+              style={{
+                background: voicePersona === 'male' ? 'linear-gradient(135deg, #0891b2, #2563eb)' : 'none',
+                border: 'none',
+                color: voicePersona === 'male' ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+                padding: '0.2rem 0.8rem',
+                borderRadius: '16px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                height: '28px'
+              }}
+              title="Activate JARVIS Masculine Vocal Protocol"
+            >
+              🤖 JARVIS (Male)
+            </button>
+            <button
+              onClick={() => {
+                setVoicePersona('female');
+                playReportAnalyzerSound('start');
+                speakText("FRIDAY female protocol active, Ma'am.");
+                setReportAnalyzerConsoleLogs(prev => ["System: Voice Persona FRIDAY (Female) active.", ...prev.slice(0, 5)]);
+              }}
+              style={{
+                background: voicePersona === 'female' ? 'linear-gradient(135deg, #ec4899, #d946ef)' : 'none',
+                border: 'none',
+                color: voicePersona === 'female' ? '#fff' : 'rgba(255, 255, 255, 0.5)',
+                padding: '0.2rem 0.8rem',
+                borderRadius: '16px',
+                fontSize: '0.75rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                height: '28px'
+              }}
+              title="Activate FRIDAY Feminine Vocal Protocol"
+            >
+              👩‍💻 FRIDAY (Female)
+            </button>
           </div>
 
           <button 
