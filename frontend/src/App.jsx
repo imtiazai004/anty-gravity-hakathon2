@@ -198,6 +198,13 @@ function App() {
 
   // --- ALWAYS-ON SPEECH LISTENER LOOP INTEGRATION ---
   const toggleAlwaysListening = async () => {
+    // Global lock to prevent duplicate StrictMode mount loops!
+    if (window.speechServiceRunningLocked && !listeningRef.current) {
+      console.log("Speech service is already running. Ignoring duplicate trigger.");
+      return;
+    }
+    window.speechServiceRunningLocked = true;
+
     // Automatically slide the console expanded to show transcript logs
     setIsConsoleExpanded(true);
 
@@ -213,6 +220,7 @@ function App() {
       listeningRef.current = false;
       setIsAlwaysListening(false);
       hasGreetedRef.current = false;
+      window.speechServiceRunningLocked = false;
       if (window.wakeRecognitionInstance) {
         window.wakeRecognitionInstance.onend = null;
         try { window.wakeRecognitionInstance.stop(); } catch(e) {}
@@ -426,117 +434,7 @@ function App() {
         </div>
       )}
 
-      {/* Floating Animated Arc Reactor Core Console Widget */}
-      {isAudioInitialized && (
-        <div className="reportAnalyzer-core-widget">
-          {/* Transcript Logs Panel */}
-          {isConsoleExpanded && (
-            <motion.div 
-              className="reportAnalyzer-console-card"
-              initial={{ opacity: 0, scale: 0.8, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              style={{ border: `1px solid ${isAlwaysListening ? 'rgba(16, 185, 129, 0.3)' : 'rgba(6, 182, 212, 0.3)'}` }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.25rem', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: micError === 'denied' ? '#ef4444' : isAlwaysListening ? '#10b981' : 'var(--accent-cyan)' }}>
-                  {micError === 'denied' ? '🚫 MIC BLOCKED' : micError === 'unsupported' ? '⚠️ NOT SUPPORTED' : isAlwaysListening ? '🎙️ LISTENING ("Report Analyzer")' : '🎤 MIC STANDBY'}
-                </span>
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsConsoleExpanded(false);
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'rgba(255,255,255,0.4)',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    padding: '0 6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.2s',
-                    fontWeight: 'bold',
-                    borderRadius: '4px'
-                  }}
-                  title="Minimize Logs Console"
-                  onMouseEnter={(e) => { e.target.style.color = '#ef4444'; e.target.style.background = 'rgba(255,0,0,0.1)'; }}
-                  onMouseLeave={(e) => { e.target.style.color = 'rgba(255,255,255,0.4)'; e.target.style.background = 'none'; }}
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="trace-log-list" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                {reportAnalyzerConsoleLogs.map((log, idx) => {
-                  const isSir = log.startsWith("Sir:");
-                  const isReportAnalyzer = log.startsWith("ReportAnalyzer:");
-                  const logColor = isSir ? '#06b6d4' : (isReportAnalyzer ? '#10b981' : 'var(--text-muted)');
-                  return (
-                    <div key={idx} className="console-log-item" style={{ color: logColor }}>
-                      {log}
-                    </div>
-                  );
-                })}
-              </div>
-              {isReportAnalyzerThinking && (
-                <div style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '0.5rem', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block', animation: 'pulse 1s infinite' }}></span>
-                  ReportAnalyzer thinking...
-                </div>
-              )}
-            </motion.div>
-          )}
 
-          {/* Collapsed Logs Tab Trigger */}
-          {!isConsoleExpanded && (
-            <div 
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsConsoleExpanded(true);
-              }}
-              style={{
-                position: 'absolute',
-                top: '-32px',
-                right: '4px',
-                background: 'rgba(15, 23, 42, 0.9)',
-                border: '1px solid rgba(6, 182, 212, 0.3)',
-                borderRadius: '12px',
-                padding: '3px 10px',
-                fontSize: '0.65rem',
-                color: 'var(--accent-cyan)',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                backdropFilter: 'blur(8px)',
-                transition: 'all 0.2s',
-                letterSpacing: '0.5px'
-              }}
-              title="Expand Console Logs"
-              onMouseEnter={(e) => { e.target.style.borderColor = 'var(--accent-cyan-glow)'; e.target.style.boxShadow = '0 0 10px var(--accent-cyan)'; }}
-              onMouseLeave={(e) => { e.target.style.borderColor = 'rgba(6, 182, 212, 0.3)'; e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)'; }}
-            >
-              💬 LOGS
-            </div>
-          )}
-
-          {/* Tony Stark glowing concentric Arc Reactor Core with Microphone */}
-          <div 
-            onClick={toggleAlwaysListening}
-            className={`arc-reactor-core ${isAlwaysListening ? 'arc-reactor-listening' : ''} ${isReportAnalyzerSpeaking ? 'arc-reactor-active' : ''}`}
-            title="Toggle Always-On ReportAnalyzer voice command mode"
-            style={{ position: 'relative' }}
-          >
-            <div className="arc-reactor-ring"></div>
-            <div className="arc-reactor-triangles"></div>
-            {isAlwaysListening ? (
-              <Mic size={22} className="arc-reactor-mic-icon active" />
-            ) : (
-              <MicOff size={22} className="arc-reactor-mic-icon standby" />
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Responsive Flex Header */}
       <header style={{
