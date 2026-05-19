@@ -107,7 +107,7 @@ app.post('/api/reportAnalyzer/chat', async (req, res) => {
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: "gemini-flash-latest",
+        model: "gemini-1.5-flash",
         systemInstruction: "You are ReportAnalyzer, the loyal and sophisticated cybernetic AI assistant from Iron Man. You address the user as 'Sir'. You speak in a highly polite, helpful, and professional British tone, interleaved with technical and cybernetic intelligence jargon. If the user asks you to analyze news or a link, present a high-tech briefing of the scraped article text. Keep your responses concise (2-4 sentences max) so they are easy to speak out loud via SpeechSynthesis."
       });
       const result = await model.generateContent(finalPrompt);

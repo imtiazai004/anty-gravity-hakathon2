@@ -20,6 +20,7 @@ function App() {
   const [micError, setMicError] = useState(null); // 'denied' | 'unsupported' | null
   const [isReportAnalyzerThinking, setIsReportAnalyzerThinking] = useState(false);
   const [isReportAnalyzerSpeaking, setIsReportAnalyzerSpeaking] = useState(false);
+  const [voicePersona, setVoicePersona] = useState('male');
   const [reportAnalyzerConsoleLogs, setReportAnalyzerConsoleLogs] = useState([
     "System: Standing by. Hands-free active listening loop initialized."
   ]);
@@ -511,7 +512,7 @@ function App() {
               background: isAlwaysListening ? '#10b981' : micError === 'denied' ? '#ef4444' : '#06b6d4',
               boxShadow: `0 0 8px ${isAlwaysListening ? '#10b981' : micError === 'denied' ? '#ef4444' : '#06b6d4'}`,
               display: 'inline-block',
-              animation: isAlwaysListening ? 'pulse 1.5s infinite' : 'none'
+              animation: isAlwaysListening ? 'micPulse 1.5s infinite' : 'none'
             }}></span>
             {micError === 'denied' ? '🚫 MIC BLOCKED' : isAlwaysListening ? '🎙️ VOICE ACTIVE' : '🎤 VOICE STANDBY'}
           </button>

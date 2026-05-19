@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { db } from './state.js';
 import { NewsScraper } from './scraper.js';
 
-const wait = (ms) => new Promise(res => setTimeout(res, ms));
+const wait = (ms) => new Promise(res => setTimeout(res, process.env.VERCEL ? Math.min(ms, 50) : ms));
 
 export class SupplyChainAgent {
   async process(input) {
@@ -30,7 +30,7 @@ export class SupplyChainAgent {
         const liveNewsContext = scrapedArticles.map(a => `- ${a.title} (${a.link})`).join("\n");
 
         const model = genAI.getGenerativeModel({
-          model: "gemini-flash-latest",
+          model: "gemini-1.5-flash",
           systemInstruction: "You are an Autonomous Supply Chain Logistics Coordinator. Your objective is to FIRST use the Google Search tool to find real-time, live internet information about the provided incident or query. THEN, check the state of shipments and inventory using your database tools, identify delays and SKU stockout risks, and execute rerouting mitigation commands on affected shipments to ensure business continuity based on the LIVE search results.",
           tools: [
             { googleSearch: {} },
