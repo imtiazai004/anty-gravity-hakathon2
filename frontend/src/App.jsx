@@ -25,19 +25,12 @@ function App() {
   ]);
   const [isConsoleExpanded, setIsConsoleExpanded] = useState(true);
 
-  // Voice Persona Protocol
-  const [voicePersona, setVoicePersona] = useState('male'); // 'male' (Jarvis) | 'female' (Friday)
-
   // useRef to avoid stale closure inside recognition.onend
   const listeningRef = useRef(false);
   const hasGreetedRef = useRef(false);
 
   const getWakeWordGreeting = () => {
-    if (voicePersona === 'male') {
-      return "Yes, I am here to help. Haan ji, main kya madad kar sakta hoon?";
-    } else {
-      return "Yes, I am here to help. Haan ji, main kya madad kar sakti hoon?";
-    }
+    return "Yes, I am here to help. Haan ji, main kya madad kar sakta hoon?";
   };
 
   // Programmatic HTML5 Web Audio Synth SFX
@@ -128,35 +121,20 @@ function App() {
     const u = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
     
-    let selectedVoice = null;
+    // Find a premium masculine/deep voice (like David, George, Microsoft David, Google UK English Male, etc.)
+    const maleVoice = voices.find(v => 
+      v.name.toLowerCase().includes('male') || 
+      v.name.toLowerCase().includes('david') || 
+      v.name.toLowerCase().includes('george') || 
+      v.name.toLowerCase().includes('microsoft david') ||
+      v.name.toLowerCase().includes('google uk english male')
+    ) || voices.find(v => v.lang.startsWith('en-GB')) || voices.find(v => v.lang.startsWith('en')) || voices[0];
     
-    if (voicePersona === 'male') {
-      // Find a masculine/deep voice
-      selectedVoice = voices.find(v => 
-        v.name.toLowerCase().includes('male') || 
-        v.name.toLowerCase().includes('david') || 
-        v.name.toLowerCase().includes('george') || 
-        v.name.toLowerCase().includes('microsoft david') ||
-        v.name.toLowerCase().includes('google uk english male')
-      ) || voices.find(v => v.lang.startsWith('en-GB')) || voices.find(v => v.lang.startsWith('en')) || voices[0];
-      u.pitch = 0.88; // Deep resonant masculine tone
-      u.rate = 0.91;
-    } else {
-      // Find a feminine/higher voice (Hazel, Friday)
-      selectedVoice = voices.find(v => 
-        v.name.toLowerCase().includes('female') || 
-        v.name.toLowerCase().includes('zira') || 
-        v.name.toLowerCase().includes('hazel') || 
-        v.name.toLowerCase().includes('susan') || 
-        v.name.toLowerCase().includes('google uk english female')
-      ) || voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en')) || voices[0];
-      u.pitch = 1.15; // Bright energetic Friday tone
-      u.rate = 0.95;
+    if (maleVoice) {
+      u.voice = maleVoice;
     }
-
-    if (selectedVoice) {
-      u.voice = selectedVoice;
-    }
+    u.pitch = 0.90; // Deep resonant masculine tone
+    u.rate = 0.92;
 
     u.onstart = () => setIsReportAnalyzerSpeaking(true);
     u.onend = () => {
@@ -270,8 +248,8 @@ function App() {
       // ONLY log the standing by message and greet on the absolute FIRST launch, NOT during background loop restarts!
       if (!hasGreetedRef.current) {
         hasGreetedRef.current = true;
-        const initialText = voicePersona === 'male' ? "JARVIS voice protocol initialized, Sir. I am online and listening for your commands." : "FRIDAY voice protocol initialized, Ma'am. I am online and listening for your commands.";
-        setReportAnalyzerConsoleLogs(prev => [`System: 🎙️ ${voicePersona === 'male' ? 'JARVIS' : 'FRIDAY'} active. Standing by...`, ...prev.slice(0, 5)]);
+        const initialText = "Report Analyzer system initialized, Sir. I am online and standing by.";
+        setReportAnalyzerConsoleLogs(prev => ["System: 🎙️ Active Listening Loop initialized. Standing by...", ...prev.slice(0, 5)]);
         speakText(initialText);
       }
     };
@@ -602,72 +580,6 @@ function App() {
               display: 'inline-block'
             }}></span>
             {status.mode}
-          </div>
-
-          {/* Holographic AI Persona Voice Protocol Selectors */}
-          <div style={{
-            display: 'flex',
-            background: 'rgba(15, 23, 42, 0.85)',
-            border: '1px solid rgba(6, 182, 212, 0.25)',
-            borderRadius: '20px',
-            padding: '2px',
-            height: '34px',
-            alignItems: 'center',
-            gap: '2px',
-            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)'
-          }}>
-            <button
-              onClick={() => {
-                setVoicePersona('male');
-                playReportAnalyzerSound('start');
-                speakText("JARVIS male protocol active, Sir.");
-                setReportAnalyzerConsoleLogs(prev => ["System: Voice Persona JARVIS (Male) active.", ...prev.slice(0, 5)]);
-              }}
-              style={{
-                background: voicePersona === 'male' ? 'linear-gradient(135deg, #0891b2, #2563eb)' : 'none',
-                border: 'none',
-                color: voicePersona === 'male' ? '#fff' : 'rgba(255, 255, 255, 0.5)',
-                padding: '0.2rem 0.8rem',
-                borderRadius: '16px',
-                fontSize: '0.75rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                height: '28px'
-              }}
-              title="Activate JARVIS Masculine Vocal Protocol"
-            >
-              🤖 JARVIS (Male)
-            </button>
-            <button
-              onClick={() => {
-                setVoicePersona('female');
-                playReportAnalyzerSound('start');
-                speakText("FRIDAY female protocol active, Ma'am.");
-                setReportAnalyzerConsoleLogs(prev => ["System: Voice Persona FRIDAY (Female) active.", ...prev.slice(0, 5)]);
-              }}
-              style={{
-                background: voicePersona === 'female' ? 'linear-gradient(135deg, #ec4899, #d946ef)' : 'none',
-                border: 'none',
-                color: voicePersona === 'female' ? '#fff' : 'rgba(255, 255, 255, 0.5)',
-                padding: '0.2rem 0.8rem',
-                borderRadius: '16px',
-                fontSize: '0.75rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem',
-                height: '28px'
-              }}
-              title="Activate FRIDAY Feminine Vocal Protocol"
-            >
-              👩‍💻 FRIDAY (Female)
-            </button>
           </div>
 
           <button 
