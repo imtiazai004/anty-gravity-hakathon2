@@ -2,6 +2,7 @@
   "name": "report-analyzer-monorepo",
   "version": "1.0.0",
   "description": "Monorepo for Report Analyzer AI Command Center",
+  "type": "module",
   "scripts": {
     "build": "cd frontend && npm install && npm run build",
     "start": "cd backend && npm start"

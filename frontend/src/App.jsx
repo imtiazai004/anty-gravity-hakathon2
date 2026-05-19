@@ -480,6 +480,42 @@ function App() {
             {status.mode}
           </div>
 
+          {/* Glowing Minimalist Header Voice Status Badge Button */}
+          <button
+            onClick={() => {
+              playReportAnalyzerSound('beep');
+              toggleAlwaysListening();
+            }}
+            style={{
+              background: isAlwaysListening ? 'rgba(16, 185, 129, 0.15)' : 'rgba(30, 41, 59, 0.7)',
+              border: `1px solid ${isAlwaysListening ? '#10b981' : micError === 'denied' ? '#ef4444' : 'rgba(6, 182, 212, 0.4)'}`,
+              padding: '0.4rem 0.85rem',
+              borderRadius: '20px',
+              fontSize: '0.8rem',
+              fontWeight: '600',
+              color: isAlwaysListening ? '#10b981' : micError === 'denied' ? '#ef4444' : '#06b6d4',
+              boxShadow: isAlwaysListening ? '0 0 15px rgba(16, 185, 129, 0.15)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              height: '34px'
+            }}
+            title={micError === 'denied' ? 'Mic Blocked! Click to re-request permission' : 'Click to initialize or toggle Voice System Mode'}
+          >
+            <span style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: isAlwaysListening ? '#10b981' : micError === 'denied' ? '#ef4444' : '#06b6d4',
+              boxShadow: `0 0 8px ${isAlwaysListening ? '#10b981' : micError === 'denied' ? '#ef4444' : '#06b6d4'}`,
+              display: 'inline-block',
+              animation: isAlwaysListening ? 'pulse 1.5s infinite' : 'none'
+            }}></span>
+            {micError === 'denied' ? '🚫 MIC BLOCKED' : isAlwaysListening ? '🎙️ VOICE ACTIVE' : '🎤 VOICE STANDBY'}
+          </button>
+
           <button 
             onClick={handleReset}
             style={{
