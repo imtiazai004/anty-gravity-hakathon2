@@ -12,6 +12,13 @@ function NewsView({ dbState, triggerRefresh }) {
   const [isListening, setIsListening] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
+  const getActiveStepIndex = () => {
+    if (!isProcessing) return -1;
+    // Map active pipeline indices: 
+    // Ingestion (0), Insight (1), Impact (2), Action (3), Simulator (4)
+    return traces.length;
+  };
+
   // Synth sounds
   const playReportAnalyzerSound = (type) => {
     if (!window.AudioContext && !window.webkitAudioContext) return;
@@ -199,6 +206,104 @@ function NewsView({ dbState, triggerRefresh }) {
         >
           {isProcessing ? '⚡ Analyzing News feeds...' : 'Analyze Market Signals'}
         </button>
+
+        {/* Glowing visual agent pipeline flow */}
+        <div style={{
+          background: 'rgba(15, 23, 42, 0.45)',
+          border: '1px solid rgba(6, 182, 212, 0.15)',
+          borderRadius: '8px',
+          padding: '0.75rem 0.5rem',
+          marginTop: '1rem',
+          position: 'relative',
+          zIndex: 10,
+          boxShadow: 'inset 0 0 12px rgba(6, 182, 212, 0.05)'
+        }}>
+          <div style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#06b6d4', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ display: 'inline-block', width: '5px', height: '5px', borderRadius: '50%', background: '#06b6d4', boxShadow: '0 0 6px #06b6d4' }}></span>
+            Agent Pipeline
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.15rem' }}>
+            
+            {/* Step 1: Ingestion */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, padding: '0.2rem', borderRadius: '4px',
+              background: getActiveStepIndex() === 0 ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+              border: getActiveStepIndex() === 0 ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid transparent',
+              boxShadow: getActiveStepIndex() === 0 ? '0 0 10px rgba(6, 182, 212, 0.2)' : 'none',
+              transition: 'all 0.3s ease',
+              transform: getActiveStepIndex() === 0 ? 'scale(1.05)' : 'scale(1)'
+            }}>
+              <div style={{ fontSize: '1.1rem', marginBottom: '0.15rem' }}>📥</div>
+              <div style={{ fontSize: '0.65rem', fontWeight: '700', color: 'var(--text-main)' }}>Ingestion</div>
+              <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', lineHeight: '1.1' }}>Reads & cleans</div>
+            </div>
+
+            <div style={{ color: getActiveStepIndex() === 0 ? '#06b6d4' : 'rgba(255,255,255,0.15)', fontWeight: 'bold', fontSize: '0.75rem', transition: 'all 0.3s' }}>→</div>
+
+            {/* Step 2: Insight */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, padding: '0.2rem', borderRadius: '4px',
+              background: getActiveStepIndex() === 1 ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+              border: getActiveStepIndex() === 1 ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid transparent',
+              boxShadow: getActiveStepIndex() === 1 ? '0 0 10px rgba(6, 182, 212, 0.2)' : 'none',
+              transition: 'all 0.3s ease',
+              transform: getActiveStepIndex() === 1 ? 'scale(1.05)' : 'scale(1)'
+            }}>
+              <div style={{ fontSize: '1.1rem', marginBottom: '0.15rem' }}>🔍</div>
+              <div style={{ fontSize: '0.65rem', fontWeight: '700', color: 'var(--text-main)' }}>Insight</div>
+              <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', lineHeight: '1.1' }}>Extracts patterns</div>
+            </div>
+
+            <div style={{ color: getActiveStepIndex() === 1 ? '#06b6d4' : 'rgba(255,255,255,0.15)', fontWeight: 'bold', fontSize: '0.75rem', transition: 'all 0.3s' }}>→</div>
+
+            {/* Step 3: Impact */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, padding: '0.2rem', borderRadius: '4px',
+              background: getActiveStepIndex() === 2 ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+              border: getActiveStepIndex() === 2 ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid transparent',
+              boxShadow: getActiveStepIndex() === 2 ? '0 0 10px rgba(6, 182, 212, 0.2)' : 'none',
+              transition: 'all 0.3s ease',
+              transform: getActiveStepIndex() === 2 ? 'scale(1.05)' : 'scale(1)'
+            }}>
+              <div style={{ fontSize: '1.1rem', marginBottom: '0.15rem' }}>⚡</div>
+              <div style={{ fontSize: '0.65rem', fontWeight: '700', color: 'var(--text-main)' }}>Impact</div>
+              <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', lineHeight: '1.1' }}>Analyzes severity</div>
+            </div>
+
+            <div style={{ color: getActiveStepIndex() === 2 ? '#06b6d4' : 'rgba(255,255,255,0.15)', fontWeight: 'bold', fontSize: '0.75rem', transition: 'all 0.3s' }}>→</div>
+
+            {/* Step 4: Action */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, padding: '0.2rem', borderRadius: '4px',
+              background: getActiveStepIndex() === 3 ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+              border: getActiveStepIndex() === 3 ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid transparent',
+              boxShadow: getActiveStepIndex() === 3 ? '0 0 10px rgba(6, 182, 212, 0.2)' : 'none',
+              transition: 'all 0.3s ease',
+              transform: getActiveStepIndex() === 3 ? 'scale(1.05)' : 'scale(1)'
+            }}>
+              <div style={{ fontSize: '1.1rem', marginBottom: '0.15rem' }}>🎯</div>
+              <div style={{ fontSize: '0.65rem', fontWeight: '700', color: 'var(--text-main)' }}>Action</div>
+              <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', lineHeight: '1.1' }}>Generates actions</div>
+            </div>
+
+            <div style={{ color: getActiveStepIndex() === 3 ? '#06b6d4' : 'rgba(255,255,255,0.15)', fontWeight: 'bold', fontSize: '0.75rem', transition: 'all 0.3s' }}>→</div>
+
+            {/* Step 5: Simulator */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, padding: '0.2rem', borderRadius: '4px',
+              background: getActiveStepIndex() === 4 ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+              border: getActiveStepIndex() === 4 ? '1px solid rgba(6, 182, 212, 0.4)' : '1px solid transparent',
+              boxShadow: getActiveStepIndex() === 4 ? '0 0 10px rgba(6, 182, 212, 0.2)' : 'none',
+              transition: 'all 0.3s ease',
+              transform: getActiveStepIndex() === 4 ? 'scale(1.05)' : 'scale(1)'
+            }}>
+              <div style={{ fontSize: '1.1rem', marginBottom: '0.15rem' }}>🤖</div>
+              <div style={{ fontSize: '0.65rem', fontWeight: '700', color: 'var(--text-main)' }}>Simulator</div>
+              <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', lineHeight: '1.1' }}>Executes actions</div>
+            </div>
+
+          </div>
+        </div>
 
         <h3 style={{ marginTop: '1.25rem', marginBottom: '0.75rem', fontSize: '0.95rem', color: 'var(--text-main)', position: 'relative', zIndex: 10 }}>
           Trace Analysis
