@@ -563,5 +563,27 @@ html, body {
   word-wrap: break-word;
 }
 
+/* Premium glowing Mic icon within concentric Arc Reactor Core */
+.arc-reactor-mic-icon {
+  z-index: 10;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+.arc-reactor-mic-icon.standby {
+  color: var(--accent-cyan);
+}
+
+.arc-reactor-mic-icon.active {
+  color: #f59e0b;
+  animation: micPulse 1.8s infinite;
+}
+
+.arc-reactor-active .arc-reactor-mic-icon {
+  color: #10b981 !important;
+  filter: drop-shadow(0 0 10px #10b981) !important;
+  animation: micPulse 1.0s infinite !important;
+}
+
 
 

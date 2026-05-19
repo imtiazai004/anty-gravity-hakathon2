@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Mic, MicOff } from 'lucide-react';
 import NewsView from './views/NewsView';
 import LogisticsView from './views/LogisticsView';
 import FinancialView from './views/FinancialView';
@@ -20,7 +21,7 @@ function App() {
   const [isReportAnalyzerThinking, setIsReportAnalyzerThinking] = useState(false);
   const [isReportAnalyzerSpeaking, setIsReportAnalyzerSpeaking] = useState(false);
   const [reportAnalyzerConsoleLogs, setReportAnalyzerConsoleLogs] = useState([
-    "System: Standing by. Tap Core to authorize hands-free vocals."
+    "System: Standing by. Tap Mic to authorize hands-free vocals."
   ]);
   const [isConsoleExpanded, setIsConsoleExpanded] = useState(true);
   // useRef to avoid stale closure inside recognition.onend
@@ -196,7 +197,7 @@ function App() {
         try { window.wakeRecognitionInstance.stop(); } catch(e) {}
       }
       playReportAnalyzerSound('error');
-      setReportAnalyzerConsoleLogs(prev => ["System: Hands-free ReportAnalyzer core deactivated.", ...prev.slice(0, 5)]);
+      setReportAnalyzerConsoleLogs(prev => ["System: Voice command listener deactivated.", ...prev.slice(0, 5)]);
       return;
     }
 
@@ -222,8 +223,8 @@ function App() {
       listeningRef.current = true;
       setIsAlwaysListening(true);
       setMicError(null);
-      setReportAnalyzerConsoleLogs(prev => ["System: 🎙️ Wake Word 'ReportAnalyzer' listener ACTIVE. Standing by, Sir.", ...prev.slice(0, 5)]);
-      speakText("ReportAnalyzer core initialized, Sir. I am online and listening for your commands.");
+      setReportAnalyzerConsoleLogs(prev => ["System: 🎙️ Wake Word 'Report Analyzer' listener ACTIVE. Standing by, Sir.", ...prev.slice(0, 5)]);
+      speakText("Report Analyzer core initialized, Sir. I am online and listening for your commands.");
     };
 
     recognition.onresult = async (event) => {
@@ -233,12 +234,19 @@ function App() {
 
       const lowerTranscript = transcript.toLowerCase();
       
-      // Look for wake-word "reportAnalyzer"
-      if (lowerTranscript.includes("reportAnalyzer")) {
+      // Look for wake-word "report analyzer" or "reportanalyzer"
+      const hasWakeWord = lowerTranscript.includes("report analyzer") || lowerTranscript.includes("reportanalyzer");
+      if (hasWakeWord) {
         playReportAnalyzerSound('beep');
         
-        const parts = lowerTranscript.split("reportAnalyzer");
-        const command = parts[parts.length - 1].trim();
+        let command = "";
+        if (lowerTranscript.includes("report analyzer")) {
+          const parts = lowerTranscript.split("report analyzer");
+          command = parts[parts.length - 1].trim();
+        } else {
+          const parts = lowerTranscript.split("reportanalyzer");
+          command = parts[parts.length - 1].trim();
+        }
 
         if (command.length > 2) {
           processReportAnalyzerCommand(command);
@@ -367,10 +375,13 @@ function App() {
             </p>
             <button 
               className="audio-initializer-btn"
-              onClick={() => {
+              onClick={async () => {
                 setIsAudioInitialized(true);
                 playReportAnalyzerSound('success');
-                speakText("Command Center fully operational, Sir. ReportAnalyzer is online and scanning all systems.");
+                // Automatically activate always-listening wake-word mode!
+                setTimeout(() => {
+                  toggleAlwaysListening();
+                }, 100);
               }}
             >
               INITIALIZE REPORT_ANALYZER DIAGNOSTICS
@@ -392,7 +403,7 @@ function App() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.25rem' }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: micError === 'denied' ? '#ef4444' : isAlwaysListening ? '#10b981' : 'var(--accent-cyan)' }}>
-                  {micError === 'denied' ? '🚫 MIC BLOCKED' : micError === 'unsupported' ? '⚠️ NOT SUPPORTED' : isAlwaysListening ? '📡 WAKE WORD ON: "ReportAnalyzer"' : '🔒 CORE STANDBY'}
+                  {micError === 'denied' ? '🚫 MIC BLOCKED' : micError === 'unsupported' ? '⚠️ NOT SUPPORTED' : isAlwaysListening ? '🎙️ LISTENING ("Report Analyzer")' : '🎤 MIC STANDBY'}
                 </span>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Console Log</span>
               </div>
@@ -417,7 +428,7 @@ function App() {
             </motion.div>
           )}
 
-          {/* Tony Stark glowing concentric Arc Reactor Core */}
+          {/* Tony Stark glowing concentric Arc Reactor Core with Microphone */}
           <div 
             onClick={toggleAlwaysListening}
             className={`arc-reactor-core ${isAlwaysListening ? 'arc-reactor-listening' : ''} ${isReportAnalyzerSpeaking ? 'arc-reactor-active' : ''}`}
@@ -425,7 +436,11 @@ function App() {
           >
             <div className="arc-reactor-ring"></div>
             <div className="arc-reactor-triangles"></div>
-            <div className="arc-reactor-pulse-dot"></div>
+            {isAlwaysListening ? (
+              <Mic size={22} className="arc-reactor-mic-icon active" />
+            ) : (
+              <MicOff size={22} className="arc-reactor-mic-icon standby" />
+            )}
           </div>
         </div>
       )}
