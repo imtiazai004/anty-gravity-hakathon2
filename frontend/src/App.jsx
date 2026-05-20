@@ -5,6 +5,7 @@ import NewsView from './views/NewsView';
 import SupplyChainView from './views/SupplyChainView';
 import FinancialView from './views/FinancialView';
 import { API_URL } from './config';
+import { playSound, speakText } from './hooks/useAudio';
 
 function App() {
   const [activeTab, setActiveTab] = useState('news');
@@ -31,133 +32,16 @@ function App() {
   const hasGreetedRef = useRef(false);
   const isAwakeRef = useRef(false);
   const awakeTimerRef = useRef(null);
+  // Replaces the old window.speechServiceRunningLocked global — useRef is React-safe
+  // and resets automatically when the component unmounts (e.g. hot reload, StrictMode).
+  const speechLockedRef = useRef(false);
 
   const getWakeWordGreeting = () => {
     return "Yes, I am here to help. Haan ji, main kya madad kar sakta hoon?";
   };
 
-  const getAudioContext = () => {
-    if (!window.AudioContext && !window.webkitAudioContext) return null;
-    if (!window.sharedAudioCtx) {
-      window.sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (window.sharedAudioCtx.state === 'suspended') {
-      window.sharedAudioCtx.resume();
-    }
-    return window.sharedAudioCtx;
-  };
-
-  // Programmatic HTML5 Web Audio Synth SFX
-  const playReportAnalyzerSound = (type) => {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    try {
-      if (type === 'start') {
-        // Futuristic frequency sweep rising (Core woke up)
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(320, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.35);
-        gain.gain.setValueAtTime(0.08, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.35);
-      } else if (type === 'beep') {
-        // Tech double blip chime
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.connect(gain1);
-        gain1.connect(ctx.destination);
-        osc1.type = 'triangle';
-        osc1.frequency.setValueAtTime(750, ctx.currentTime);
-        gain1.gain.setValueAtTime(0.06, ctx.currentTime);
-        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-        osc1.start();
-        osc1.stop(ctx.currentTime + 0.08);
-
-        setTimeout(() => {
-          const osc2 = ctx.createOscillator();
-          const gain2 = ctx.createGain();
-          osc2.connect(gain2);
-          gain2.connect(ctx.destination);
-          osc2.type = 'triangle';
-          osc2.frequency.setValueAtTime(950, ctx.currentTime);
-          gain2.gain.setValueAtTime(0.06, ctx.currentTime);
-          gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-          osc2.start();
-          osc2.stop(ctx.currentTime + 0.08);
-        }, 110);
-      } else if (type === 'success') {
-        // Rising arpeggio
-        const notes = [523.25, 659.25, 783.99, 1046.50];
-        notes.forEach((freq, i) => {
-          setTimeout(() => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, ctx.currentTime);
-            gain.gain.setValueAtTime(0.06, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.3);
-          }, i * 70);
-        });
-      } else if (type === 'error') {
-        // Alarm/Warning caution hum
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(170, ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 0.45);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.45);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Upgraded verbal ReportAnalyzer conversational speaker
-  const speakText = (text, onEndCallback) => {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-
-    const u = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
-    
-    // Find a premium masculine/deep voice (like David, George, Microsoft David, Google UK English Male, etc.)
-    const maleVoice = voices.find(v => 
-      v.name.toLowerCase().includes('male') || 
-      v.name.toLowerCase().includes('david') || 
-      v.name.toLowerCase().includes('george') || 
-      v.name.toLowerCase().includes('microsoft david') ||
-      v.name.toLowerCase().includes('google uk english male')
-    ) || voices.find(v => v.lang.startsWith('en-GB')) || voices.find(v => v.lang.startsWith('en')) || voices[0];
-    
-    if (maleVoice) {
-      u.voice = maleVoice;
-    }
-    u.pitch = 0.90; // Deep resonant masculine tone
-    u.rate = 0.92;
-
-    u.onstart = () => setIsReportAnalyzerSpeaking(true);
-    u.onend = () => {
-      setIsReportAnalyzerSpeaking(false);
-      if (onEndCallback) onEndCallback();
-    };
-    u.onerror = () => setIsReportAnalyzerSpeaking(false);
-
-    window.speechSynthesis.speak(u);
-  };
+  // Audio helpers come from the shared useAudio hook — no local duplication needed.
+  // playSound and speakText are imported from hooks/useAudio.js
 
   // Check agent status on mount
   useEffect(() => {
@@ -191,7 +75,7 @@ function App() {
       await fetch(API_URL + '/api/state/reset', { method: 'POST' });
       setRefreshTrigger(prev => prev + 1);
       
-      playReportAnalyzerSound('success');
+      playSound('success');
       speakText("Standard operational databases successfully reset, Sir. All metrics restored.");
       setReportAnalyzerConsoleLogs(prev => ["System: Database reset completed.", ...prev.slice(0, 5)]);
     } catch (err) {
@@ -227,12 +111,12 @@ function App() {
 
   // --- ALWAYS-ON SPEECH LISTENER LOOP INTEGRATION ---
   const toggleAlwaysListening = async () => {
-    // Global lock to prevent duplicate StrictMode mount loops!
-    if (window.speechServiceRunningLocked && !listeningRef.current) {
+    // Prevent duplicate StrictMode mount loops using a ref (not a window global)
+    if (speechLockedRef.current && !listeningRef.current) {
       console.log("Speech service is already running. Ignoring duplicate trigger.");
       return;
     }
-    window.speechServiceRunningLocked = true;
+    speechLockedRef.current = true;
 
     // Automatically slide the console expanded to show transcript logs
     setIsConsoleExpanded(true);
@@ -249,12 +133,12 @@ function App() {
       listeningRef.current = false;
       setIsAlwaysListening(false);
       hasGreetedRef.current = false;
-      window.speechServiceRunningLocked = false;
+      speechLockedRef.current = false;
       if (window.wakeRecognitionInstance) {
         window.wakeRecognitionInstance.onend = null;
         try { window.wakeRecognitionInstance.stop(); } catch(e) {}
       }
-      playReportAnalyzerSound('error');
+      playSound('error');
       setReportAnalyzerConsoleLogs(prev => ["System: Voice command listener deactivated.", ...prev.slice(0, 5)]);
       return;
     }
@@ -276,7 +160,7 @@ function App() {
     }
 
     // Turn on — play start sound only ONCE here
-    playReportAnalyzerSound('start');
+    playSound('start');
 
     const createAndStartRecognition = () => {
       const recognition = new SpeechRecognition();
@@ -311,7 +195,7 @@ function App() {
         const wakeResult = detectWakeWord(transcript);
 
         if (wakeResult.detected) {
-          playReportAnalyzerSound('beep');
+          playSound('beep');
           
           if (wakeResult.command.length > 2) {
             // Wake word AND command in the same chunk
@@ -323,7 +207,7 @@ function App() {
             if (awakeTimerRef.current) clearTimeout(awakeTimerRef.current);
             awakeTimerRef.current = setTimeout(() => {
               isAwakeRef.current = false;
-              playReportAnalyzerSound('error'); // Soft chime to indicate sleep
+              playSound('error'); // Soft chime to indicate sleep
               setReportAnalyzerConsoleLogs(prev => [`System: ReportAnalyzer returned to standby mode.`, ...prev.slice(0, 5)]);
             }, 8000);
 
@@ -420,7 +304,7 @@ function App() {
         }
         
         triggerRefresh(); // Refresh DB states
-        playReportAnalyzerSound('success');
+        playSound('success');
         
         if (orchestrateData.spokenBriefing) {
           speakText(orchestrateData.spokenBriefing);
@@ -430,7 +314,7 @@ function App() {
 
     } catch (err) {
       console.error(err);
-      playReportAnalyzerSound('error');
+      playSound('error');
       speakText(`Apologies, ${pronoun}. A communication delay occurred on the neural mainframe.`);
     } finally {
       setIsReportAnalyzerThinking(false);
@@ -454,7 +338,7 @@ function App() {
               className="audio-initializer-btn"
               onClick={async () => {
                 setIsAudioInitialized(true);
-                playReportAnalyzerSound('success');
+                playSound('success');
                 // Synchronously activate always-listening wake-word mode!
                 await toggleAlwaysListening();
               }}
@@ -514,7 +398,7 @@ function App() {
           {/* Glowing Minimalist Header Voice Status Badge Button */}
           <button
             onClick={() => {
-              playReportAnalyzerSound('beep');
+              playSound('beep');
               toggleAlwaysListening();
             }}
             style={{

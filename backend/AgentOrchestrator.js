@@ -6,8 +6,12 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export class AgentOrchestrator {
   constructor() {
+    // 'financial' shares the same agent as 'supplyChain' — the agent's internal
+    // keyword detection routes fuel/oil inputs to the financial mitigation branch.
+    const scAgent = new SupplyChainAgent();
     this.agents = {
-      supplyChain: new SupplyChainAgent()
+      supplyChain: scAgent,
+      financial: scAgent
     };
   }
 

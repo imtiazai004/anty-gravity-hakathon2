@@ -70,7 +70,7 @@ export class NewsScraper {
     try {
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'ReportAnalyzerAgenticDashboard/1.0 (imtiazai004@gmail.com)'
+          'User-Agent': 'ReportAnalyzerAgenticDashboard/1.0 (supply-chain-ai-agent)'
         }
       });
       if (!response.ok) {

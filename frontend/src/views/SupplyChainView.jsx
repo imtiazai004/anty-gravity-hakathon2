@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import AgentTraceView from '../components/AgentTraceView';
 import { API_URL } from '../config';
+import { playSound, speakText } from '../hooks/useAudio';
+import { useLeaflet } from '../hooks/useLeaflet';
 
 // Interactive Concentric HUD Radar Component
 function HudRadar() {
@@ -14,53 +16,9 @@ function HudRadar() {
   );
 }
 
-// Active Leaflet Map Component loaded dynamically
+// Active Leaflet Map Component — Leaflet loaded via the useLeaflet hook (once, shared)
 function RealWorldMap({ shipments, isRerouted }) {
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
-
-  // Dynamic injector for Leaflet assets (fully self-contained!)
-  useEffect(() => {
-    if (window.L) {
-      setLeafletLoaded(true);
-      return;
-    }
-
-    // Inject CSS
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    link.crossOrigin = '';
-    document.head.appendChild(link);
-
-    // Inject CSS Custom Tooltip Styling for our cyber theme
-    const style = document.createElement('style');
-    style.innerHTML = `
-      .cyber-tooltip {
-        background: rgba(15, 23, 42, 0.85) !important;
-        border: 1px solid rgba(6, 182, 212, 0.3) !important;
-        color: #fff !important;
-        font-family: monospace !important;
-        font-size: 0.75rem !important;
-        padding: 2px 6px !important;
-        border-radius: 4px !important;
-        box-shadow: 0 0 8px rgba(6, 182, 212, 0.25) !important;
-        font-weight: bold !important;
-      }
-      .leaflet-container {
-        background: #0f172a !important;
-      }
-    `;
-    document.head.appendChild(style);
-
-    // Inject Script
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.crossOrigin = '';
-    script.onload = () => {
-      setLeafletLoaded(true);
-    };
-    document.body.appendChild(script);
-  }, []);
+  const { leafletReady: leafletLoaded } = useLeaflet();
 
   useEffect(() => {
     if (!leafletLoaded || !window.L) return;
@@ -175,119 +133,8 @@ function SupplyChainView({ dbState, triggerRefresh }) {
   const [isListening, setIsListening] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
 
-  const getAudioContext = () => {
-    if (!window.AudioContext && !window.webkitAudioContext) return null;
-    if (!window.sharedAudioCtx) {
-      window.sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (window.sharedAudioCtx.state === 'suspended') {
-      window.sharedAudioCtx.resume();
-    }
-    return window.sharedAudioCtx;
-  };
-
-  // Programmatic HTML5 Web Audio Synth SFX for ReportAnalyzer
-  const playReportAnalyzerSound = (type) => {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    try {
-      if (type === 'start') {
-        // High-tech frequency sweep rising up (listening)
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(320, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.3);
-        gain.gain.setValueAtTime(0.12, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.3);
-      } else if (type === 'beep') {
-        // Tech double blip
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.connect(gain1);
-        gain1.connect(ctx.destination);
-        osc1.type = 'triangle';
-        osc1.frequency.setValueAtTime(750, ctx.currentTime);
-        gain1.gain.setValueAtTime(0.08, ctx.currentTime);
-        gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-        osc1.start();
-        osc1.stop(ctx.currentTime + 0.08);
-
-        setTimeout(() => {
-          const osc2 = ctx.createOscillator();
-          const gain2 = ctx.createGain();
-          osc2.connect(gain2);
-          gain2.connect(ctx.destination);
-          osc2.type = 'triangle';
-          osc2.frequency.setValueAtTime(950, ctx.currentTime);
-          gain2.gain.setValueAtTime(0.08, ctx.currentTime);
-          gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-          osc2.start();
-          osc2.stop(ctx.currentTime + 0.08);
-        }, 100);
-      } else if (type === 'success') {
-        // Sci-fi arpeggio sequence (4 notes rising rapidly)
-        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-        notes.forEach((freq, i) => {
-          setTimeout(() => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, ctx.currentTime);
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.25);
-          }, i * 80);
-        });
-      } else if (type === 'error') {
-        // Synthesized low caution hum
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(170, ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(80, ctx.currentTime + 0.4);
-        gain.gain.setValueAtTime(0.12, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.4);
-      }
-    } catch (e) {
-      console.error('Sound synthesis blocked/failed:', e);
-    }
-  };
-
-  // Upgraded speech synthesis with native British accent profile
-  const speakText = (text) => {
-    if (isMuted || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    
-    const u = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
-    
-    // Look specifically for British English/UK voices
-    const britishVoice = voices.find(v => 
-      (v.lang.startsWith('en-GB') || v.name.includes('UK') || v.name.includes('British') || v.name.includes('Hazel') || v.name.includes('Great Britain'))
-    ) || voices.find(v => 
-      v.lang.startsWith('en')
-    ) || voices[0];
-    
-    if (britishVoice) {
-      u.voice = britishVoice;
-    }
-    
-    u.rate = 0.92;  // Slightly deliberate, polite tone
-    u.pitch = 1.05;
-    window.speechSynthesis.speak(u);
-  };
+  // Audio helpers from shared hook — no local duplication needed.
+  // playSound and speakText imported from hooks/useAudio.js
 
   // Fetch initial raw unstructured input from backend
   useEffect(() => {
@@ -316,7 +163,7 @@ function SupplyChainView({ dbState, triggerRefresh }) {
     }
 
     // Play retro sweeps on microphone opening
-    playReportAnalyzerSound('start');
+    playSound('start');
 
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
@@ -332,14 +179,14 @@ function SupplyChainView({ dbState, triggerRefresh }) {
       setInputText(transcript);
       
       // Dynamic confirmation chime + British confirmation
-      playReportAnalyzerSound('beep');
-      speakText(`Understood, Sir. Spoken instruction captured: ${transcript}. Synthesizing logs.`);
+      playSound('beep');
+      speakText(`Understood, Sir. Spoken instruction captured: ${transcript}. Synthesizing logs.`, isMuted);
     };
 
     recognition.onerror = (event) => {
       console.error("Speech recognition error:", event.error);
       setIsListening(false);
-      playReportAnalyzerSound('error');
+      playSound('error');
     };
 
     recognition.onend = () => {
@@ -355,8 +202,8 @@ function SupplyChainView({ dbState, triggerRefresh }) {
     setTraces([]);
     
     // Play double blip beep + analysis speech
-    playReportAnalyzerSound('beep');
-    speakText("Analyzing logistics coordinates now, Sir. Auditing active routes.");
+    playSound('beep');
+    speakText("Analyzing logistics coordinates now, Sir. Auditing active routes.", isMuted);
 
     try {
       const response = await fetch(API_URL + '/api/scenarios/supplyChain/run', {
@@ -380,14 +227,14 @@ function SupplyChainView({ dbState, triggerRefresh }) {
       // Play arpeggio success chime + final verbal ReportAnalyzer status update!
       if (data.trace && data.trace.length > 0) {
         const lastStep = data.trace[data.trace.length - 1];
-        playReportAnalyzerSound('success');
-        speakText(`Protocol completed successfully, Sir. ${lastStep.details}`);
+        playSound('success');
+        speakText(`Protocol completed successfully, Sir. ${lastStep.details}`, isMuted);
       }
     } catch (error) {
       console.error(error);
-      playReportAnalyzerSound('error');
+      playSound('error');
       setTraces([{ title: 'Error', content: 'Failed to connect to Agent Orchestrator.' }]);
-      speakText("Apologies, Sir. A core gateway connection failure has occurred.");
+      speakText("Apologies, Sir. A core gateway connection failure has occurred.", isMuted);
     } finally {
       setIsProcessing(false);
     }

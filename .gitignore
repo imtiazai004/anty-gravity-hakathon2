@@ -22,6 +22,10 @@ nodejs/
 .DS_Store
 Thumbs.db
 
+# Debug / scratch scripts — not part of the app
+frontend/debug.js
+debug.js
+
 # Ignore external reference repositories
 21st/
 antigravity-awesome-skills/

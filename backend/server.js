@@ -30,7 +30,6 @@ app.get('/api/state', (req, res) => {
   res.json({
     shipments: db.getShipments(),
     inventory: db.getInventory(),
-    staffing: db.getStaffingLevels(),
     logs: db.getLogs(),
     finance: db.getFinanceData(),
     fuelSurchargeRate: db.getFuelSurchargeRate(),
@@ -168,15 +167,8 @@ app.get('/api/news/scrape', async (req, res) => {
   }
 });
 
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  app.listen(port, () => {
-    console.log(`Agentic Backend API running on http://localhost:${port}`);
-  });
-}
-
-export default app;
-
 // --- SINGLE DEPLOYMENT: SERVE FRONTEND STATIC BUILD ---
+// Must be registered BEFORE export default so Vercel's serverless handler picks them up.
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -186,11 +178,19 @@ const __dirname = path.dirname(__filename);
 // Serve static assets from frontend build folder
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-// Serve index.html for any other routing path (SPA support)
+// Serve index.html for any non-API path (SPA support)
 app.get('*', (req, res) => {
-  // If the request is for API routes but matches nothing, return 404
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'API route not found' });
   }
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
+
+// Start local dev server (skipped on Vercel)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`Agentic Backend API running on http://localhost:${port}`);
+  });
+}
+
+export default app;

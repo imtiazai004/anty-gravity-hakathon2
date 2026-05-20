@@ -6,11 +6,11 @@ export const inputs = {
     body: "Please be advised that union workers at the Port of LA have initiated a sudden 48-hour strike starting immediately. All inbound container ships are being held offshore. We anticipate severe delays for any cargo currently on the water and not yet unloaded. Expected clearance backlog is 5-7 days minimum once operations resume.",
     timestamp: new Date().toISOString()
   },
-  healthcare: {
-    id: "hc-input-1",
-    type: "system_alert",
-    subject: "Staffing Critical Shortage - ICU Ward 4",
-    body: "Automated Alert: 3 scheduled RNs for ICU Ward 4 (Night Shift 19:00 - 07:00) have called out sick. Current patient-to-nurse ratio will exceed mandated safety limits (projected 4:1, limit 2:1). Additionally, 5 patients are scheduled for transfer from ER to ICU in the next 2 hours. Immediate action required to secure coverage.",
+  financial: {
+    id: "fin-input-1",
+    type: "market_alert",
+    subject: "URGENT: Global Fuel Price Surge — Logistics Cost Review",
+    body: "Brent crude oil prices have surged 18% over the past 72 hours driven by OPEC+ supply cuts and renewed geopolitical tensions. Transportation fuel surcharge rates at major logistics carriers are expected to increase significantly. All active shipment contracts with fuel escalation clauses must be reviewed and client notification dispatches must be prepared immediately.",
     timestamp: new Date().toISOString()
   }
 };

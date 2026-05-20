@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import AgentTraceView from '../components/AgentTraceView';
 import { API_URL } from '../config';
+import { playSound, speakText } from '../hooks/useAudio';
 
 function NewsView({ dbState, triggerRefresh }) {
-  const [inputText, setInputText] = useState('News article about crude oil fuel price increase and supply shortages...');
+  const [inputText, setInputText] = useState('Brent crude oil prices have surged 18% due to OPEC+ supply cuts. Fuel surcharge rates at major logistics carriers are increasing. Review active shipment contracts immediately.');
   const [traces, setTraces] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [newsHeadlines, setNewsHeadlines] = useState([]);
@@ -19,75 +20,8 @@ function NewsView({ dbState, triggerRefresh }) {
     return traces.length;
   };
 
-  const getAudioContext = () => {
-    if (!window.AudioContext && !window.webkitAudioContext) return null;
-    if (!window.sharedAudioCtx) {
-      window.sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (window.sharedAudioCtx.state === 'suspended') {
-      window.sharedAudioCtx.resume();
-    }
-    return window.sharedAudioCtx;
-  };
-
-  // Synth sounds
-  const playReportAnalyzerSound = (type) => {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    try {
-      if (type === 'start') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(320, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1100, ctx.currentTime + 0.3);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-        osc.start(); osc.stop(ctx.currentTime + 0.3);
-      } else if (type === 'beep') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(850, ctx.currentTime);
-        gain.gain.setValueAtTime(0.06, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-        osc.start(); osc.stop(ctx.currentTime + 0.1);
-      } else if (type === 'success') {
-        const notes = [523.25, 659.25, 783.99, 1046.50];
-        notes.forEach((freq, i) => {
-          setTimeout(() => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.type = 'sine'; osc.frequency.setValueAtTime(freq, ctx.currentTime);
-            gain.gain.setValueAtTime(0.05, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-            osc.start(); osc.stop(ctx.currentTime + 0.25);
-          }, i * 70);
-        });
-      } else if (type === 'error') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(160, ctx.currentTime);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-        osc.start(); osc.stop(ctx.currentTime + 0.4);
-      }
-    } catch(e) {}
-  };
-
-  const speakText = (text) => {
-    if (isMuted || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
-    const britishVoice = voices.find(v => v.lang.startsWith('en-GB') || v.name.includes('UK') || v.name.includes('British')) || voices[0];
-    if (britishVoice) u.voice = britishVoice;
-    u.rate = 0.92;
-    window.speechSynthesis.speak(u);
-  };
+  // Audio helpers from shared hook — no local duplication needed.
+  // playSound and speakText imported from hooks/useAudio.js
 
   // Fetch live articles matching text alert
   const fetchMatchingNews = async (query) => {
@@ -113,15 +47,15 @@ function NewsView({ dbState, triggerRefresh }) {
       setIsListening(false);
       return;
     }
-    playReportAnalyzerSound('start');
+    playSound('start');
     const recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       setInputText(transcript);
-      playReportAnalyzerSound('beep');
-      speakText(`Understood, Sir. News instruction parsed: ${transcript}.`);
+      playSound('beep');
+      speakText(`Understood, Sir. News instruction parsed: ${transcript}.`, isMuted);
     };
     recognition.onend = () => setIsListening(false);
     window.recognitionInstance = recognition;
@@ -131,11 +65,12 @@ function NewsView({ dbState, triggerRefresh }) {
   const handleSimulate = async () => {
     setIsProcessing(true);
     setTraces([]);
-    playReportAnalyzerSound('beep');
-    speakText("Parsing unstructured alert, Sir. Grounding search queries on global news tickers.");
+    playSound('beep');
+    speakText("Parsing unstructured alert, Sir. Grounding search queries on global news tickers.", isMuted);
 
     try {
-      const response = await fetch(`${API_URL}/api/scenarios/supplyChain/run`, {
+      // Financial/news view uses the dedicated financial scenario route
+      const response = await fetch(`${API_URL}/api/scenarios/financial/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body: inputText })
@@ -155,11 +90,11 @@ function NewsView({ dbState, triggerRefresh }) {
 
       if (data.trace && data.trace.length > 0) {
         const lastStep = data.trace[data.trace.length - 1];
-        playReportAnalyzerSound('success');
-        speakText(`Scan resolved, Sir. Surcharge schedules recalculated.`);
+        playSound('success');
+        speakText(`Scan resolved, Sir. Surcharge schedules recalculated.`, isMuted);
       }
     } catch (error) {
-      playReportAnalyzerSound('error');
+      playSound('error');
       setTraces([{ title: 'Error', content: 'Connection gridlocks on agent orchestrator.' }]);
     } finally {
       setIsProcessing(false);

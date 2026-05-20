@@ -70,25 +70,28 @@ export class SupplyChainAgent {
 
         // Initialize Chat
         const chat = model.startChat();
-        
+
         // Initial Message to prompt reasoning
         const prompt = `Logistics Alert / Input Request:\n"${input}"\n\nTask: Analyze the alert, query active shipments and inventory using your tools to see if we have high-priority shipments in transit to the affected port, evaluate the stockout risk of those SKUs, and reroute the critical shipments if a risk is detected.`;
-        
-        trace.push({
+
+        // Keep a direct reference to the reasoning trace entry — never use a hardcoded index
+        const reasoningTrace = {
           id: "sc-trace-2",
           timestamp: new Date().toISOString(),
           source: "Gemini 1.5 Flash",
           action: "Reasoning Loop",
           details: "Agent initialized reasoning. Analyzing incident and preparing database tool queries...",
           status: "processing"
-        });
+        };
+        trace.push(reasoningTrace);
         await wait(600);
 
         let response = await chat.sendMessage(prompt);
         let functionCalls = response.response.functionCalls;
-        
-        trace[1].details = "Agent successfully parsed the alert and is now invoking database tools to inspect active shipment pipelines.";
-        trace[1].status = "completed";
+
+        // Update by reference — safe regardless of push order
+        reasoningTrace.details = "Agent successfully parsed the alert and is now invoking database tools to inspect active shipment pipelines.";
+        reasoningTrace.status = "completed";
 
         let reroutePerformed = false;
         let affectedShipmentsCount = 0;
