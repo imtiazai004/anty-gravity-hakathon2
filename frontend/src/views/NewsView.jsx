@@ -19,11 +19,22 @@ function NewsView({ dbState, triggerRefresh }) {
     return traces.length;
   };
 
+  const getAudioContext = () => {
+    if (!window.AudioContext && !window.webkitAudioContext) return null;
+    if (!window.sharedAudioCtx) {
+      window.sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (window.sharedAudioCtx.state === 'suspended') {
+      window.sharedAudioCtx.resume();
+    }
+    return window.sharedAudioCtx;
+  };
+
   // Synth sounds
   const playReportAnalyzerSound = (type) => {
-    if (!window.AudioContext && !window.webkitAudioContext) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (type === 'start') {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();

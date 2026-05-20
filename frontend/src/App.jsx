@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff } from 'lucide-react';
 import NewsView from './views/NewsView';
-import LogisticsView from './views/LogisticsView';
+import SupplyChainView from './views/SupplyChainView';
+import HealthcareView from './views/HealthcareView';
 import FinancialView from './views/FinancialView';
 import { API_URL } from './config';
 
@@ -12,8 +13,8 @@ function App() {
   const [dbState, setDbState] = useState({ shipments: [], inventory: [], staffing: [], logs: [], finance: [], fuelSurchargeRate: 5, draftedNotification: "", shippingCostMultiplier: 1.0 });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
-  // Mobile Audio block override (Defaulted to true for direct instant startup!)
-  const [isAudioInitialized, setIsAudioInitialized] = useState(true);
+  // Mobile Audio block (Defaulted to false for direct immersive onboarding & browser gesture security!)
+  const [isAudioInitialized, setIsAudioInitialized] = useState(false);
 
   // --- ALWAYS-ON CONVERSATIONAL REPORT_ANALYZER AI CORE STATE ---
   const [isAlwaysListening, setIsAlwaysListening] = useState(false);
@@ -34,12 +35,22 @@ function App() {
     return "Yes, I am here to help. Haan ji, main kya madad kar sakta hoon?";
   };
 
+  const getAudioContext = () => {
+    if (!window.AudioContext && !window.webkitAudioContext) return null;
+    if (!window.sharedAudioCtx) {
+      window.sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (window.sharedAudioCtx.state === 'suspended') {
+      window.sharedAudioCtx.resume();
+    }
+    return window.sharedAudioCtx;
+  };
+
   // Programmatic HTML5 Web Audio Synth SFX
   const playReportAnalyzerSound = (type) => {
-    if (!window.AudioContext && !window.webkitAudioContext) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      
       if (type === 'start') {
         // Futuristic frequency sweep rising (Core woke up)
         const osc = ctx.createOscillator();
@@ -157,14 +168,8 @@ function App() {
         setStatus({ isLive: false, mode: 'Offline' });
       });
 
-    // Automatically trigger hands-free speech loop on startup!
-    const autoTimer = setTimeout(() => {
-      toggleAlwaysListening();
-    }, 1000); // 1.0s buffer to ensure browser audio contexts and voices are fully ready
-
     // Clean up persistent listening on unmount
     return () => {
-      clearTimeout(autoTimer);
       if (window.wakeRecognitionInstance) {
         window.wakeRecognitionInstance.onend = null;
         window.wakeRecognitionInstance.stop();
@@ -232,6 +237,12 @@ function App() {
     }
 
     // Request mic permission explicitly first
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setMicError('unsupported');
+      setReportAnalyzerConsoleLogs(prev => ["System: ❌ Microphone access not supported or blocked (requires HTTPS/localhost).", ...prev.slice(0, 5)]);
+      return;
+    }
+
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
       setMicError(null);
@@ -423,10 +434,8 @@ function App() {
               onClick={async () => {
                 setIsAudioInitialized(true);
                 playReportAnalyzerSound('success');
-                // Automatically activate always-listening wake-word mode!
-                setTimeout(() => {
-                  toggleAlwaysListening();
-                }, 100);
+                // Synchronously activate always-listening wake-word mode!
+                await toggleAlwaysListening();
               }}
             >
               INITIALIZE REPORT_ANALYZER DIAGNOSTICS
@@ -593,15 +602,26 @@ function App() {
             📰 News Grounding
           </button>
           <button 
-            className={`tab-btn ${activeTab === 'logistics' ? 'active' : ''}`}
-            onClick={() => setActiveTab('logistics')}
+            className={`tab-btn ${activeTab === 'supply' ? 'active' : ''}`}
+            onClick={() => setActiveTab('supply')}
             style={{
-              borderColor: activeTab === 'logistics' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)',
-              boxShadow: activeTab === 'logistics' ? '0 0 15px rgba(6, 182, 212, 0.15)' : 'none',
-              color: activeTab === 'logistics' ? 'var(--accent-cyan)' : 'var(--text-muted)'
+              borderColor: activeTab === 'supply' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)',
+              boxShadow: activeTab === 'supply' ? '0 0 15px rgba(6, 182, 212, 0.15)' : 'none',
+              color: activeTab === 'supply' ? 'var(--accent-cyan)' : 'var(--text-muted)'
             }}
           >
-            🚢 Logistics Radar
+            🚢 Supply Chain
+          </button>
+          <button 
+            className={`tab-btn ${activeTab === 'healthcare' ? 'active' : ''}`}
+            onClick={() => setActiveTab('healthcare')}
+            style={{
+              borderColor: activeTab === 'healthcare' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)',
+              boxShadow: activeTab === 'healthcare' ? '0 0 15px rgba(6, 182, 212, 0.15)' : 'none',
+              color: activeTab === 'healthcare' ? 'var(--accent-cyan)' : 'var(--text-muted)'
+            }}
+          >
+            🏥 Healthcare Control
           </button>
           <button 
             className={`tab-btn ${activeTab === 'finance' ? 'active' : ''}`}
@@ -629,8 +649,11 @@ function App() {
             {activeTab === 'news' && (
               <NewsView dbState={dbState} triggerRefresh={triggerRefresh} />
             )}
-            {activeTab === 'logistics' && (
-              <LogisticsView dbState={dbState} />
+            {activeTab === 'supply' && (
+              <SupplyChainView dbState={dbState} triggerRefresh={triggerRefresh} />
+            )}
+            {activeTab === 'healthcare' && (
+              <HealthcareView dbState={dbState} triggerRefresh={triggerRefresh} />
             )}
             {activeTab === 'finance' && (
               <FinancialView dbState={dbState} />
