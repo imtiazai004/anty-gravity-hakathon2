@@ -43,6 +43,20 @@ app.post('/api/state/reset', (req, res) => {
   res.json(result);
 });
 
+// TRUE LLM Orchestration endpoint
+app.post('/api/orchestrate', async (req, res) => {
+  const { command } = req.body;
+  if (!command) return res.status(400).json({ error: "Missing command" });
+
+  try {
+    const result = await orchestrator.determineRouteAndProcess(command);
+    res.json(result);
+  } catch (err) {
+    console.error("[Orchestrate] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get the unstructured input for a scenario
 app.get('/api/inputs/:scenario', (req, res) => {
   const { scenario } = req.params;

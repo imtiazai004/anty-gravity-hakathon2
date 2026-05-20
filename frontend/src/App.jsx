@@ -30,6 +30,8 @@ function App() {
   // useRef to avoid stale closure inside recognition.onend
   const listeningRef = useRef(false);
   const hasGreetedRef = useRef(false);
+  const isAwakeRef = useRef(false);
+  const awakeTimerRef = useRef(null);
 
   const getWakeWordGreeting = () => {
     return "Yes, I am here to help. Haan ji, main kya madad kar sakta hoon?";
@@ -303,7 +305,7 @@ function App() {
         const lastIdx = event.results.length - 1;
         if (!event.results[lastIdx].isFinal) return;
 
-        const transcript = event.results[lastIdx][0].transcript.trim();
+        let transcript = event.results[lastIdx][0].transcript.trim();
         if (!transcript) return;
         console.log("ReportAnalyzer captured input:", transcript);
 
@@ -311,15 +313,33 @@ function App() {
 
         if (wakeResult.detected) {
           playReportAnalyzerSound('beep');
-          setReportAnalyzerConsoleLogs(prev => [`You: "${transcript}"`, ...prev.slice(0, 5)]);
-
+          
           if (wakeResult.command.length > 2) {
+            // Wake word AND command in the same chunk
+            setReportAnalyzerConsoleLogs(prev => [`You: "${transcript}"`, ...prev.slice(0, 5)]);
             processReportAnalyzerCommand(wakeResult.command);
           } else {
+            // Wake word only - go into AWAKE state for 8 seconds
+            isAwakeRef.current = true;
+            if (awakeTimerRef.current) clearTimeout(awakeTimerRef.current);
+            awakeTimerRef.current = setTimeout(() => {
+              isAwakeRef.current = false;
+              playReportAnalyzerSound('error'); // Soft chime to indicate sleep
+              setReportAnalyzerConsoleLogs(prev => [`System: ReportAnalyzer returned to standby mode.`, ...prev.slice(0, 5)]);
+            }, 8000);
+
             const greetingText = getWakeWordGreeting();
             speakText(greetingText);
-            setReportAnalyzerConsoleLogs(prev => [`ReportAnalyzer: "${greetingText}"`, ...prev.slice(0, 5)]);
+            setReportAnalyzerConsoleLogs(prev => [`ReportAnalyzer: "${greetingText}" (Awake for 8s)`, ...prev.slice(0, 5)]);
           }
+        } else if (isAwakeRef.current) {
+          // No wake word, but we are currently AWAKE!
+          // Treat the entire transcript as a command
+          if (awakeTimerRef.current) clearTimeout(awakeTimerRef.current);
+          isAwakeRef.current = false; // Reset state after capturing command
+          
+          setReportAnalyzerConsoleLogs(prev => [`You: "${transcript}"`, ...prev.slice(0, 5)]);
+          processReportAnalyzerCommand(transcript);
         }
       };
 
@@ -384,60 +404,29 @@ function App() {
       speakText(chatData.reply);
       setReportAnalyzerConsoleLogs(prev => [`ReportAnalyzer: "${chatData.reply}"`, ...prev.slice(0, 5)]);
 
-      // 3. Detect operational keywords to auto-orchestrate actual simulated agents!
+      // 3. Send raw command to the True LLM Orchestrator
       const lowerCmd = command.toLowerCase();
-      
-      if (lowerCmd.includes("news") || lowerCmd.includes("google") || lowerCmd.includes("supply") || lowerCmd.includes("shipment") || lowerCmd.includes("strike") || lowerCmd.includes("la") || lowerCmd.includes("route") || lowerCmd.includes("port")) {
-        // Redirect tab visual view
-        setActiveTab('supply');
-        
-        setTimeout(async () => {
-          speakText(`Initiating logistics mitigation protocols, ${pronoun}. Executing container rerouting schedules. STAND BY.`);
-          try {
-            await fetch(API_URL + '/api/scenarios/supplyChain/run', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ body: "Divert electronics cargo bound for Port of LA due to union labor gridlock strike." })
-            });
-            // Update database states in UI
-            triggerRefresh();
-            playReportAnalyzerSound('success');
-            
-            // Rich Audio Briefing explaining what is done and next steps!
-            const supplyBriefing = `Status briefing, ${pronoun}. A labor union strike was reported at the Port of Los Angeles, exposing our high-priority cargo Shipment ID-8842 to severe gridlocks. To mitigate stockout risks for SKU-90210, I have successfully diverted the shipment to the Port of Seattle. Standard delivery ledgers have been adjusted with an updated 18 percent fuel surcharge. Moving forward, ${pronoun}, I recommend auditing inland truck dispatch schedules in Seattle to expedite final warehouse delivery. Standing by.`;
-            speakText(supplyBriefing);
-            setReportAnalyzerConsoleLogs(prev => [`System: ${supplyBriefing}`, ...prev.slice(0, 5)]);
-          } catch (e) {
-            console.error(e);
-          }
-        }, 3000);
-      } 
-      else if (lowerCmd.includes("nurse") || lowerCmd.includes("hospital") || lowerCmd.includes("healthcare") || lowerCmd.includes("staff") || lowerCmd.includes("icu") || lowerCmd.includes("shortage")) {
-        setActiveTab('healthcare');
-        
-        setTimeout(async () => {
-          speakText(`Initiating healthcare safety protocols, ${pronoun}. Conducting medical staffing audit. STAND BY.`);
-          try {
-            await fetch(API_URL + '/api/scenarios/healthcare/run', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ body: "Resolve staffing shortages. Reallocate SDU nurses to balance critical ICU safety limit ratios." })
-            });
-            // Update database states in UI
-            triggerRefresh();
-            playReportAnalyzerSound('success');
-            
-            // Rich Audio Briefing explaining what is done and next steps!
-            const healthBriefing = `Status briefing, ${pronoun}. Severe nursing staff deficits were flagged at the General Hospital ICU, causing safe patient safety ratios to exceed standard regulatory limits. To secure patient safety, I have reallocated nurse resources from Step-Down Units directly to the ICU, restoring the safety index to stable levels. Moving forward, ${pronoun}, we must initiate priority agency nurse hiring campaigns to offset the high ICU census over the next seventy-two hours. Standing by.`;
-            speakText(healthBriefing);
-            setReportAnalyzerConsoleLogs(prev => [`System: ${healthBriefing}`, ...prev.slice(0, 5)]);
-          } catch (e) {
-            console.error(e);
-          }
-        }, 3000);
-      }
-      else if (lowerCmd.includes("reset") || lowerCmd.includes("clear") || lowerCmd.includes("database")) {
+      if (lowerCmd.includes("reset") || lowerCmd.includes("clear") || lowerCmd.includes("database")) {
         handleReset();
+      } else {
+        const orchestrateRes = await fetch(API_URL + '/api/orchestrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command })
+        });
+        const orchestrateData = await orchestrateRes.json();
+        
+        if (orchestrateData.targetView) {
+          setActiveTab(orchestrateData.targetView);
+        }
+        
+        triggerRefresh(); // Refresh DB states
+        playReportAnalyzerSound('success');
+        
+        if (orchestrateData.spokenBriefing) {
+          speakText(orchestrateData.spokenBriefing);
+          setReportAnalyzerConsoleLogs(prev => [`System: ${orchestrateData.spokenBriefing}`, ...prev.slice(0, 5)]);
+        }
       }
 
     } catch (err) {
