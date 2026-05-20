@@ -21,3 +21,13 @@ nodejs/
 # System files
 .DS_Store
 Thumbs.db
+
+# Ignore external reference repositories
+21st/
+antigravity-awesome-skills/
+ui-ux-pro-max-skill/
+anty-gravity hakathon/
+node.zip
+nodejs/
+venv/
+.venv/
