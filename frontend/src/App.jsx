@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff } from 'lucide-react';
 import NewsView from './views/NewsView';
 import SupplyChainView from './views/SupplyChainView';
-import HealthcareView from './views/HealthcareView';
 import FinancialView from './views/FinancialView';
 import { API_URL } from './config';
 
@@ -635,17 +634,6 @@ function App() {
             🚢 Supply Chain
           </button>
           <button 
-            className={`tab-btn ${activeTab === 'healthcare' ? 'active' : ''}`}
-            onClick={() => setActiveTab('healthcare')}
-            style={{
-              borderColor: activeTab === 'healthcare' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.1)',
-              boxShadow: activeTab === 'healthcare' ? '0 0 15px rgba(6, 182, 212, 0.15)' : 'none',
-              color: activeTab === 'healthcare' ? 'var(--accent-cyan)' : 'var(--text-muted)'
-            }}
-          >
-            🏥 Healthcare Control
-          </button>
-          <button 
             className={`tab-btn ${activeTab === 'finance' ? 'active' : ''}`}
             onClick={() => setActiveTab('finance')}
             style={{
@@ -673,9 +661,6 @@ function App() {
             )}
             {activeTab === 'supply' && (
               <SupplyChainView dbState={dbState} triggerRefresh={triggerRefresh} />
-            )}
-            {activeTab === 'healthcare' && (
-              <HealthcareView dbState={dbState} triggerRefresh={triggerRefresh} />
             )}
             {activeTab === 'finance' && (
               <FinancialView dbState={dbState} />

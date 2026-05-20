@@ -27,13 +27,9 @@ export class SupplyChainAgent {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         
-        // Fetch live scraped news headlines
-        const scrapedArticles = await NewsScraper.scrapeNews("logistics strike ports");
-        const liveNewsContext = scrapedArticles.map(a => `- ${a.title} (${a.link})`).join("\n");
-
         const model = genAI.getGenerativeModel({
           model: "gemini-flash-latest",
-          systemInstruction: "You are an Autonomous Supply Chain Logistics Coordinator. Your objective is to FIRST use the Google Search tool to find real-time, live internet information about the provided incident or query. THEN, check the state of shipments and inventory using your database tools, identify delays and SKU stockout risks, and execute rerouting mitigation commands on affected shipments to ensure business continuity based on the LIVE search results.",
+          systemInstruction: "You are an Autonomous Supply Chain Logistics Coordinator. Your objective is to FIRST analyze the provided incident, query, or scraped article content. THEN, use the Google Search tool if you need more real-time, live internet information about the incident. FINALLY, check the state of shipments and inventory using your database tools, identify delays and SKU stockout risks, and execute rerouting mitigation commands on affected shipments to ensure business continuity based on the information.",
           tools: [
             { googleSearch: {} },
             {
@@ -68,7 +64,7 @@ export class SupplyChainAgent {
           timestamp: new Date().toISOString(),
           source: "Google News RSS",
           action: "Live News Ingestion",
-          details: `Live Internet Scrape Complete. Top headlines:\n${liveNewsContext}`,
+          details: `Live Internet Scrape Complete.`,
           status: "completed"
         });
 
@@ -76,7 +72,7 @@ export class SupplyChainAgent {
         const chat = model.startChat();
         
         // Initial Message to prompt reasoning
-        const prompt = `Logistics Alert / Input Request:\n"${input}"\n\nReal-Time Scraped Internet News Context:\n${liveNewsContext}\n\nTask: Analyze the alert and scraped news context, query active shipments and inventory using your tools to see if we have high-priority shipments in transit to the affected port, evaluate the stockout risk of those SKUs, and reroute the critical shipments if a risk is detected.`;
+        const prompt = `Logistics Alert / Input Request:\n"${input}"\n\nTask: Analyze the alert, query active shipments and inventory using your tools to see if we have high-priority shipments in transit to the affected port, evaluate the stockout risk of those SKUs, and reroute the critical shipments if a risk is detected.`;
         
         trace.push({
           id: "sc-trace-2",

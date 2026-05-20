@@ -1,5 +1,4 @@
 import { SupplyChainAgent } from './SupplyChainAgent.js';
-import { HealthcareAgent } from './HealthcareAgent.js';
 import { NewsScraper } from './scraper.js';
 import { getRandomGeminiKey } from './keyManager.js';
 
@@ -8,8 +7,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 export class AgentOrchestrator {
   constructor() {
     this.agents = {
-      supplyChain: new SupplyChainAgent(),
-      healthcare: new HealthcareAgent()
+      supplyChain: new SupplyChainAgent()
     };
   }
 
@@ -28,8 +26,8 @@ export class AgentOrchestrator {
           model: "gemini-flash-latest",
           systemInstruction: `You are the master routing orchestrator. 
 Analyze the user's input and determine which agent subsystem should handle it.
-Valid targets: "supplyChain" (for cargo, shipping, trucks, ports), "healthcare" (for nurses, ICU, clinics), or "general" (for anything else).
-Respond with a strict JSON object: { "target": "supplyChain|healthcare|general", "cleanCommand": "the user's core request without wake words" }`
+Valid targets: "supplyChain" (for cargo, shipping, trucks, ports, links, URLs, news) or "general" (for anything else).
+Respond with a strict JSON object: { "target": "supplyChain|general", "cleanCommand": "the user's core request without wake words" }`
         });
 
         const result = await model.generateContent(input);
@@ -44,13 +42,9 @@ Respond with a strict JSON object: { "target": "supplyChain|healthcare|general",
             targetView = 'supply';
             agentResult = await this.runScenario('supplyChain', decision.cleanCommand || input);
             spokenBriefing = "Supply Chain mitigation protocols executed successfully, Sir. Rerouting ledgers and logistics metrics have been updated on your dashboard.";
-          } else if (decision.target === 'healthcare') {
-            targetView = 'healthcare';
-            agentResult = await this.runScenario('healthcare', decision.cleanCommand || input);
-            spokenBriefing = "Healthcare staffing protocols executed, Sir. Clinic personnel reallocated to stabilize ICU safety limits. The health dashboard is updated.";
           } else {
             targetView = 'news';
-            spokenBriefing = "I have recorded your command, Sir, but no specific supply chain or healthcare action was required.";
+            spokenBriefing = "I have recorded your command, Sir, but no specific supply chain action was required.";
           }
         }
       } catch (err) {
@@ -63,10 +57,6 @@ Respond with a strict JSON object: { "target": "supplyChain|healthcare|general",
         targetView = 'supply';
         agentResult = await this.runScenario('supplyChain', input);
         spokenBriefing = "(Simulated) Supply chain mitigation protocols executed successfully.";
-      } else if (lower.includes('nurse') || lower.includes('icu') || lower.includes('health')) {
-        targetView = 'healthcare';
-        agentResult = await this.runScenario('healthcare', input);
-        spokenBriefing = "(Simulated) Healthcare staffing protocols executed successfully.";
       }
     }
 
