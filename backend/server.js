@@ -6,6 +6,7 @@ import { AgentOrchestrator } from './AgentOrchestrator.js';
 import { inputs } from './inputs.js';
 import { db } from './state.js';
 import { NewsScraper } from './scraper.js';
+import { getRandomGeminiKey } from './keyManager.js';
 
 const app = express();
 const port = 3000;
@@ -17,9 +18,10 @@ const orchestrator = new AgentOrchestrator();
 
 // Get active API configuration status
 app.get('/api/status', (req, res) => {
+  const apiKey = getRandomGeminiKey();
   res.json({
-    isLive: !!process.env.GEMINI_API_KEY,
-    mode: process.env.GEMINI_API_KEY ? "Live Agentic (Gemini 1.5 Flash)" : "Simulated Agentic"
+    isLive: !!apiKey,
+    mode: apiKey ? "Live Agentic (Gemini 1.5 Flash)" : "Simulated Agentic"
   });
 });
 
@@ -115,11 +117,12 @@ app.post('/api/reportAnalyzer/chat', async (req, res) => {
     }
   }
 
-  const isLive = process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'YOUR_GEMINI_API_KEY_HERE';
+  const apiKey = getRandomGeminiKey();
+  const isLive = !!apiKey;
 
   if (isLive) {
     try {
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({
         model: "gemini-1.5-flash",
         systemInstruction: "You are ReportAnalyzer, the loyal and sophisticated cybernetic AI assistant from Iron Man. You address the user as 'Sir'. You speak in a highly polite, helpful, and professional British tone, interleaved with technical and cybernetic intelligence jargon. If the user asks you to analyze news or a link, present a high-tech briefing of the scraped article text. Keep your responses concise (2-4 sentences max) so they are easy to speak out loud via SpeechSynthesis."

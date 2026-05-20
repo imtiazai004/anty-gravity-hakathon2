@@ -1,6 +1,7 @@
 import { SupplyChainAgent } from './SupplyChainAgent.js';
 import { HealthcareAgent } from './HealthcareAgent.js';
 import { NewsScraper } from './scraper.js';
+import { getRandomGeminiKey } from './keyManager.js';
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
@@ -15,7 +16,7 @@ export class AgentOrchestrator {
   async determineRouteAndProcess(input) {
     console.log(`[AgentOrchestrator] True LLM reasoning for input: "${input}"`);
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = getRandomGeminiKey();
     let targetView = 'news';
     let spokenBriefing = "I have processed your command, but the target subsystem is ambiguous.";
     let agentResult = null;
