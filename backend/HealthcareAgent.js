@@ -32,7 +32,7 @@ export class HealthcareAgent {
         const liveNewsContext = scrapedArticles.map(a => `- ${a.title} (${a.link})`).join("\n");
 
         const model = genAI.getGenerativeModel({
-          model: "gemini-1.5-flash",
+          model: "gemini-flash-latest",
           systemInstruction: "You are an Autonomous Healthcare Staffing and Ward Operations Coordinator. Your objective is to FIRST use the Google Search tool to find real-time, live internet news about the provided healthcare incident or staffing shortage. THEN, check staffing levels using your database tools, identify critical safety ratio violations, and execute staff reallocation commands to transfer nurses from wards with surplus staff to wards in shortage based on the LIVE search results.",
           tools: [
             { googleSearch: {} },

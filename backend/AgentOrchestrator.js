@@ -25,7 +25,7 @@ export class AgentOrchestrator {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-          model: "gemini-1.5-flash",
+          model: "gemini-flash-latest",
           systemInstruction: `You are the master routing orchestrator. 
 Analyze the user's input and determine which agent subsystem should handle it.
 Valid targets: "supplyChain" (for cargo, shipping, trucks, ports), "healthcare" (for nurses, ICU, clinics), or "general" (for anything else).
