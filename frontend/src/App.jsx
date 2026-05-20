@@ -202,6 +202,28 @@ function App() {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  // --- Fuzzy wake-word detector (handles common speech-to-text mishearings) ---
+  const detectWakeWord = (text) => {
+    const lower = text.toLowerCase();
+    // Common STT variations of "report analyzer"
+    const wakePatterns = [
+      "report analyzer", "reportanalyzer", "report analyser", "report analyze",
+      "report and a lyzer", "report anna lyzer", "report anna laser",
+      "reporter analyzer", "report analyzes", "report analysis",
+      "hey report", "hey analyzer", "hey analyser",
+      "report a nalyzer", "report analyseur", "reportanalyst"
+    ];
+    for (const pattern of wakePatterns) {
+      if (lower.includes(pattern)) {
+        // Extract command after the wake word
+        const idx = lower.indexOf(pattern);
+        const afterWake = text.substring(idx + pattern.length).trim();
+        return { detected: true, command: afterWake };
+      }
+    }
+    return { detected: false, command: "" };
+  };
+
   // --- ALWAYS-ON SPEECH LISTENER LOOP INTEGRATION ---
   const toggleAlwaysListening = async () => {
     // Global lock to prevent duplicate StrictMode mount loops!
@@ -252,84 +274,95 @@ function App() {
       return;
     }
 
-    // Turn on
+    // Turn on — play start sound only ONCE here
     playReportAnalyzerSound('start');
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false; // Set to false to capture final complete sentences on pause!
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-    recognition.maxAlternatives = 1;
 
-    recognition.onstart = () => {
-      listeningRef.current = true;
-      setIsAlwaysListening(true);
-      setMicError(null);
-      
-      // ONLY log the standing by message and greet on the absolute FIRST launch, NOT during background loop restarts!
-      if (!hasGreetedRef.current) {
-        hasGreetedRef.current = true;
-        const initialText = "Report Analyzer system initialized, Sir. I am online and standing by.";
-        setReportAnalyzerConsoleLogs(prev => ["System: 🎙️ Active Listening Loop initialized. Standing by...", ...prev.slice(0, 5)]);
-        speakText(initialText);
-      }
-    };
+    const createAndStartRecognition = () => {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;       // Keep mic open — no on/off cycling!
+      recognition.interimResults = false;   // Only fire on finalized sentences
+      recognition.lang = 'en-US';
+      recognition.maxAlternatives = 1;
 
-    recognition.onresult = async (event) => {
-      // With continuous = false, the full captured sentence is in results[0][0]
-      const transcript = event.results[0][0].transcript.trim();
-      console.log("ReportAnalyzer captured input:", transcript);
-
-      const lowerTranscript = transcript.toLowerCase();
-      
-      // Look for wake-word "report analyzer" or "reportanalyzer"
-      const hasWakeWord = lowerTranscript.includes("report analyzer") || lowerTranscript.includes("reportanalyzer");
-      if (hasWakeWord) {
-        playReportAnalyzerSound('beep');
+      recognition.onstart = () => {
+        listeningRef.current = true;
+        setIsAlwaysListening(true);
+        setMicError(null);
         
-        let command = "";
-        if (lowerTranscript.includes("report analyzer")) {
-          const parts = lowerTranscript.split("report analyzer");
-          command = parts[parts.length - 1].trim();
-        } else {
-          const parts = lowerTranscript.split("reportanalyzer");
-          command = parts[parts.length - 1].trim();
+        // ONLY greet on the absolute FIRST launch, NOT during background loop restarts
+        if (!hasGreetedRef.current) {
+          hasGreetedRef.current = true;
+          const initialText = "Report Analyzer system initialized, Sir. I am online and standing by.";
+          setReportAnalyzerConsoleLogs(prev => ["System: 🎙️ Active Listening Loop initialized. Standing by...", ...prev.slice(0, 5)]);
+          speakText(initialText);
         }
+      };
 
-        if (command.length > 2) {
-          processReportAnalyzerCommand(command);
-        } else {
-          const greetingText = getWakeWordGreeting();
-          speakText(greetingText);
-          setReportAnalyzerConsoleLogs(prev => [`ReportAnalyzer: "${greetingText}"`, ...prev.slice(0, 5)]);
+      recognition.onresult = async (event) => {
+        // In continuous mode, get the latest final result
+        const lastIdx = event.results.length - 1;
+        if (!event.results[lastIdx].isFinal) return;
+
+        const transcript = event.results[lastIdx][0].transcript.trim();
+        if (!transcript) return;
+        console.log("ReportAnalyzer captured input:", transcript);
+
+        const wakeResult = detectWakeWord(transcript);
+
+        if (wakeResult.detected) {
+          playReportAnalyzerSound('beep');
+          setReportAnalyzerConsoleLogs(prev => [`You: "${transcript}"`, ...prev.slice(0, 5)]);
+
+          if (wakeResult.command.length > 2) {
+            processReportAnalyzerCommand(wakeResult.command);
+          } else {
+            const greetingText = getWakeWordGreeting();
+            speakText(greetingText);
+            setReportAnalyzerConsoleLogs(prev => [`ReportAnalyzer: "${greetingText}"`, ...prev.slice(0, 5)]);
+          }
         }
+      };
+
+      recognition.onerror = (e) => {
+        // Silently ignore harmless errors that cause the annoying on/off beeping
+        if (e.error === 'no-speech' || e.error === 'aborted') {
+          return; // These are normal — no sound, no log, just let onend restart
+        }
+        console.error("Speech loop error:", e.error);
+        if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+          listeningRef.current = false;
+          setIsAlwaysListening(false);
+          setMicError('denied');
+          setReportAnalyzerConsoleLogs(prev => ["System: ❌ Mic blocked! In Chrome: address bar 🔒 → Site Settings → Microphone → Allow → Refresh page.", ...prev.slice(0, 5)]);
+        } else if (e.error === 'network') {
+          console.warn('Speech network error, will retry on next cycle...');
+        }
+      };
+
+      recognition.onend = () => {
+        // Silently restart after a short delay to prevent rapid cycling on mobile
+        if (listeningRef.current) {
+          setTimeout(() => {
+            if (listeningRef.current) {
+              try {
+                createAndStartRecognition();
+              } catch (err) {
+                console.error("Loop restart failed:", err);
+              }
+            }
+          }, 600); // 600ms breathing room prevents InvalidStateError on mobile
+        }
+      };
+
+      window.wakeRecognitionInstance = recognition;
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error("Recognition start failed:", err);
       }
     };
 
-    recognition.onerror = (e) => {
-      console.error("Speech loop error:", e.error);
-      if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-        listeningRef.current = false;
-        setIsAlwaysListening(false);
-        setMicError('denied');
-        setReportAnalyzerConsoleLogs(prev => ["System: ❌ Mic blocked! In Chrome: address bar 🔒 → Site Settings → Microphone → Allow → Refresh page.", ...prev.slice(0, 5)]);
-      } else if (e.error === 'network') {
-        console.warn('Speech network error, will retry...');
-      }
-    };
-
-    recognition.onend = () => {
-      // Loop persistence
-      if (listeningRef.current) {
-        try {
-          window.wakeRecognitionInstance.start();
-        } catch (err) {
-          console.error("Loop restart failed:", err);
-        }
-      }
-    };
-
-    window.wakeRecognitionInstance = recognition;
-    recognition.start();
+    createAndStartRecognition();
   };
 
   // Automated Agent Action Dispatcher & Speech Core
