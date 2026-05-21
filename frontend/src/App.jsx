@@ -4,6 +4,7 @@ import { Mic, MicOff } from 'lucide-react';
 import NewsView from './views/NewsView';
 import SupplyChainView from './views/SupplyChainView';
 import FinancialView from './views/FinancialView';
+import { DeepAnalysisPanel } from './components/DeepAnalysisPanel';
 import { API_URL } from './config';
 import { playSound, speakText } from './hooks/useAudio';
 
@@ -26,6 +27,41 @@ function App() {
     "System: Standing by. Hands-free active listening loop initialized."
   ]);
   const [isConsoleExpanded, setIsConsoleExpanded] = useState(true);
+
+  // ── Deep Reasoning state ──────────────────────────────────────────────────
+  const [deepAnalysis, setDeepAnalysis] = useState(null);
+  const [isDeepAnalyzing, setIsDeepAnalyzing] = useState(false);
+
+  /**
+   * Calls /api/deepReason with any text or URL and shows the full panel.
+   * Called from voice commands AND from NewsView's "Deep Analyze" button.
+   */
+  const triggerDeepAnalysis = async (content, url) => {
+    setDeepAnalysis(null);
+    setIsDeepAnalyzing(true);
+    playSound('beep');
+    speakText('Initiating deep reasoning analysis, Sir. Assessing supply chain impact vectors.');
+
+    try {
+      const res = await fetch(API_URL + '/api/deepReason', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: content, url }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDeepAnalysis(data.analysis);
+        playSound('success');
+        speakText(data.analysis.spokenBriefing);
+      }
+    } catch (e) {
+      console.error('[deepReason]', e);
+      playSound('error');
+      speakText('Apologies Sir. The deep reasoning module encountered an error.');
+    } finally {
+      setIsDeepAnalyzing(false);
+    }
+  };
 
   // useRef to avoid stale closure inside recognition.onend
   const listeningRef = useRef(false);
@@ -274,6 +310,20 @@ function App() {
     const pronoun = voicePersona === 'male' ? 'Sir' : "Ma'am";
     setReportAnalyzerConsoleLogs(prev => [`${voicePersona === 'male' ? 'Sir' : 'Ma\'am'}: "${command}"`, ...prev.slice(0, 5)]);
 
+    // ── Deep Reasoning intercept ─────────────────────────────────────────────
+    // Trigger when user speaks/types a URL, or asks about impact / analysis
+    const urlPattern = /(https?:\/\/[^\s]+)/i;
+    const urlInCommand = command.match(urlPattern);
+    const isDeepAnalysisIntent = /\b(impact|effect of|analyze|analys[ei]|what is|what's|happening|explain|breakdown|break down|summarize|deep|reason)\b/i.test(command);
+
+    if (urlInCommand || isDeepAnalysisIntent) {
+      setIsReportAnalyzerThinking(false);
+      setReportAnalyzerConsoleLogs(prev => [`System: Deep analysis triggered for: "${command.substring(0, 60)}..."`, ...prev.slice(0, 5)]);
+      triggerDeepAnalysis(command, urlInCommand?.[0] || undefined);
+      return;
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     try {
       // 1. Get conversational reply from backend
       const chatRes = await fetch(API_URL + '/api/reportAnalyzer/chat', {
@@ -322,6 +372,7 @@ function App() {
   };
 
   return (
+    <>
     <div className="app-container">
       {/* Mobile Audio Initializer overlay */}
       {!isAudioInitialized && (
@@ -541,7 +592,7 @@ function App() {
             transition={{ duration: 0.3 }}
           >
             {activeTab === 'news' && (
-              <NewsView dbState={dbState} triggerRefresh={triggerRefresh} />
+              <NewsView dbState={dbState} triggerRefresh={triggerRefresh} onDeepAnalyze={triggerDeepAnalysis} />
             )}
             {activeTab === 'supply' && (
               <SupplyChainView dbState={dbState} triggerRefresh={triggerRefresh} />
@@ -553,6 +604,14 @@ function App() {
         </AnimatePresence>
       </main>
     </div>
+
+    {/* ── Deep Analysis full-screen overlay panel ── */}
+    <DeepAnalysisPanel
+      analysis={deepAnalysis}
+      isAnalyzing={isDeepAnalyzing}
+      onClose={() => { setDeepAnalysis(null); setIsDeepAnalyzing(false); }}
+    />
+    </>
   );
 }
 

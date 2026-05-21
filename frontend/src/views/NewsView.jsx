@@ -3,7 +3,7 @@ import AgentTraceView from '../components/AgentTraceView';
 import { API_URL } from '../config';
 import { playSound, speakText } from '../hooks/useAudio';
 
-function NewsView({ dbState, triggerRefresh }) {
+function NewsView({ dbState, triggerRefresh, onDeepAnalyze }) {
   const [inputText, setInputText] = useState('Brent crude oil prices have surged 18% due to OPEC+ supply cuts. Fuel surcharge rates at major logistics carriers are increasing. Review active shipment contracts immediately.');
   const [traces, setTraces] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -144,14 +144,38 @@ function NewsView({ dbState, triggerRefresh }) {
           }}
         />
 
-        <button 
-          className="btn-primary" 
-          onClick={handleSimulate} 
-          disabled={isProcessing}
-          style={{ width: '100%', padding: '0.7rem', fontWeight: '600', background: 'linear-gradient(135deg, #0891b2, #2563eb)', border: '1px solid rgba(6, 182, 212, 0.4)', position: 'relative', zIndex: 10 }}
-        >
-          {isProcessing ? '⚡ Analyzing News feeds...' : 'Analyze Market Signals'}
-        </button>
+        {/* Two-button row: standard agent pipeline + deep reasoning */}
+        <div style={{ display: 'flex', gap: '0.5rem', position: 'relative', zIndex: 10 }}>
+          <button
+            className="btn-primary"
+            onClick={handleSimulate}
+            disabled={isProcessing}
+            style={{ flex: 1, padding: '0.7rem', fontWeight: '600', background: 'linear-gradient(135deg, #0891b2, #2563eb)', border: '1px solid rgba(6, 182, 212, 0.4)' }}
+          >
+            {isProcessing ? '⚡ Analyzing...' : '⚡ Analyze Market Signals'}
+          </button>
+
+          <button
+            onClick={() => {
+              if (!onDeepAnalyze) return;
+              const urlMatch = inputText.match(/(https?:\/\/[^\s]+)/i);
+              onDeepAnalyze(inputText, urlMatch?.[0] || undefined);
+            }}
+            disabled={isProcessing}
+            title="Deep Reasoning — full supply chain impact analysis + action plan"
+            style={{
+              flex: 1, padding: '0.7rem', fontWeight: '700',
+              background: 'linear-gradient(135deg, rgba(139,92,246,0.25), rgba(59,130,246,0.25))',
+              border: '1px solid rgba(139,92,246,0.5)',
+              color: '#c4b5fd', borderRadius: '8px', cursor: 'pointer',
+              fontSize: '0.85rem', transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.4), rgba(59,130,246,0.4))'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.25), rgba(59,130,246,0.25))'; }}
+          >
+            🧠 Deep Analyze
+          </button>
+        </div>
 
         {/* Glowing visual agent pipeline flow */}
         <div style={{
@@ -266,24 +290,45 @@ function NewsView({ dbState, triggerRefresh }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', position: 'relative', zIndex: 10 }}>
           {newsHeadlines.length > 0 ? (
             newsHeadlines.map((article, idx) => (
-              <a 
+              <div
                 key={idx}
-                href={article.link}
-                target="_blank"
-                rel="noopener noreferrer"
                 style={{
-                  display: 'block', background: 'rgba(15, 23, 42, 0.4)', border: '1px solid rgba(6, 182, 212, 0.1)',
-                  padding: '1rem', borderRadius: '6px', textDecoration: 'none', transition: 'all 0.3s'
+                  background: 'rgba(15, 23, 42, 0.4)', border: '1px solid rgba(6, 182, 212, 0.1)',
+                  borderRadius: '6px', transition: 'all 0.3s', overflow: 'hidden'
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.4)'; e.currentTarget.style.background = 'rgba(15, 23, 42, 0.6)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.1)'; e.currentTarget.style.background = 'rgba(15, 23, 42, 0.4)'; }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#06b6d4', fontWeight: 'bold', marginBottom: '0.35rem' }}>
-                  <span>📢 {article.source || "Google RSS Feed"}</span>
-                  <span>{article.time || "Today"}</span>
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500', lineHeight: '1.4' }}>{article.title}</div>
-              </a>
+                <a
+                  href={article.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'block', padding: '1rem', textDecoration: 'none' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#06b6d4', fontWeight: 'bold', marginBottom: '0.35rem' }}>
+                    <span>📢 {article.source || "Google RSS Feed"}</span>
+                    <span>{article.time || "Today"}</span>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: '500', lineHeight: '1.4' }}>{article.title}</div>
+                </a>
+                {/* Deep Analyze this specific article */}
+                {onDeepAnalyze && (
+                  <button
+                    onClick={() => onDeepAnalyze(article.title, article.link)}
+                    style={{
+                      width: '100%', padding: '0.45rem',
+                      background: 'rgba(139,92,246,0.10)', border: 'none',
+                      borderTop: '1px solid rgba(139,92,246,0.2)',
+                      color: '#a78bfa', fontSize: '0.72rem', fontWeight: '700',
+                      cursor: 'pointer', letterSpacing: '0.05em', transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.22)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.10)'; }}
+                  >
+                    🧠 Analyze Supply Chain Impact
+                  </button>
+                )}
+              </div>
             ))
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic', padding: '2rem' }}>
